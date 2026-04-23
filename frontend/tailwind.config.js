@@ -1,15 +1,14 @@
-/** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        ink: "#08131d",
+        ink: "#0f172a",
         mist: "#d8eef3",
         mint: "#55d78d",
         amber: "#f6bf45",
         ember: "#f26d5b",
-        slate: "#7d8596",
+        customSlate: "#7d8596", // ✅ renamed
       },
       boxShadow: {
         glow: "0 20px 60px rgba(19, 37, 53, 0.18)",
@@ -36,4 +35,3 @@ export default {
   },
   plugins: [],
 };
-
