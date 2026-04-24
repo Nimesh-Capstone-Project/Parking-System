@@ -10,19 +10,22 @@ export const DashboardPage = () => {
   const [slots, setSlots] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [pricing, setPricing] = useState(null);
   const { pushToast } = useToast();
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [slotsResponse, bookingsResponse, notificationsResponse] = await Promise.all([
+        const [slotsResponse, bookingsResponse, notificationsResponse, pricingResponse] = await Promise.all([
           parkingApi.get("/slots"),
           bookingApi.get("/bookings"),
           notificationApi.get("/notifications"),
+          bookingApi.get("/pricing"),
         ]);
         setSlots(slotsResponse.data);
         setBookings(bookingsResponse.data);
         setNotifications(notificationsResponse.data.slice(0, 4));
+        setPricing(pricingResponse.data);
       } catch (error) {
         pushToast({ title: "Failed to load dashboard", description: getApiError(error), tone: "error" });
       } finally {
@@ -67,7 +70,11 @@ export const DashboardPage = () => {
               .filter((slot) => slot.status === "available")
               .slice(0, 4)
               .map((slot) => (
-                <SlotCard key={slot.slotId} slot={slot} />
+                <SlotCard
+                  key={slot.slotId}
+                  slot={slot}
+                  priceLabel={pricing ? `Starts at Rs ${pricing.startingPricePerHour}/hr` : "Loading pricing..."}
+                />
               ))}
           </div>
         </section>

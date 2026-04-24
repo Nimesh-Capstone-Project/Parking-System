@@ -4,11 +4,6 @@ import { bookingApi, getApiError, parkingApi, paymentApi } from "../api/client";
 import { Loader } from "../components/Loader";
 import { useToast } from "../context/ToastContext";
 
-const VEHICLE_OPTIONS = [
-  { value: "2-wheeler", label: "2-Wheeler", rate: 20 },
-  { value: "4-wheeler", label: "4-Wheeler", rate: 40 },
-];
-
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
 
 const toLocalDateTimeValue = (date) => {
@@ -26,15 +21,25 @@ export const PaymentPage = () => {
   const slotId = searchParams.get("slotId") || location.state?.slot?.slotId || "";
   const [booking, setBooking] = useState(null);
   const [slot, setSlot] = useState(location.state?.slot || null);
+  const [pricing, setPricing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [method, setMethod] = useState("card");
   const [simulateSuccess, setSimulateSuccess] = useState(true);
-  const [vehicleType, setVehicleType] = useState("4-wheeler");
+  const [vehicleType, setVehicleType] = useState("2-wheeler");
   const [startTime, setStartTime] = useState(() => toLocalDateTimeValue(new Date(Date.now() + 60 * 60 * 1000)));
   const [durationHours, setDurationHours] = useState("1");
 
-  const selectedVehicle = VEHICLE_OPTIONS.find((option) => option.value === vehicleType) || VEHICLE_OPTIONS[1];
+  const vehicleOptions = pricing
+    ? Object.entries(pricing.vehicleRates).map(([value, rate]) => ({
+        value,
+        label: value === "2-wheeler" ? "2-Wheeler" : "4-Wheeler",
+        rate,
+      }))
+    : [];
+  const selectedVehicle =
+    vehicleOptions.find((option) => option.value === vehicleType) ||
+    vehicleOptions[0] || { value: vehicleType, label: vehicleType, rate: 0 };
   const parsedDuration = Number(durationHours);
   const calculatedAmount =
     Number.isNaN(parsedDuration) || parsedDuration <= 0 ? 0 : Number((selectedVehicle.rate * parsedDuration).toFixed(2));
@@ -48,6 +53,9 @@ export const PaymentPage = () => {
   useEffect(() => {
     const loadState = async () => {
       try {
+        const pricingResponse = await bookingApi.get("/pricing");
+        setPricing(pricingResponse.data);
+
         if (bookingId) {
           const response = await bookingApi.get(`/bookings/${bookingId}`);
           setBooking(response.data);
@@ -147,6 +155,10 @@ export const PaymentPage = () => {
     return <div className="glass-panel p-6 text-sm text-slate">Select a slot to begin the booking flow.</div>;
   }
 
+  if (!pricing) {
+    return <div className="glass-panel p-6 text-sm text-slate">Pricing is currently unavailable.</div>;
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
       <section className="glass-panel p-6">
@@ -180,7 +192,7 @@ export const PaymentPage = () => {
               <div>
                 <label className="mb-2 block text-sm font-medium">Vehicle type</label>
                 <select className="input-shell" value={vehicleType} onChange={(event) => setVehicleType(event.target.value)}>
-                  {VEHICLE_OPTIONS.map((option) => (
+                  {vehicleOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -234,6 +246,7 @@ export const PaymentPage = () => {
             <div className="mt-3 space-y-2 text-sm text-slate">
               <p>Slot: {booking?.slotId || slotId}</p>
               <p>Vehicle: {booking?.vehicleType || selectedVehicle.label}</p>
+              <p>Rate: {formatCurrency(booking?.ratePerHour ?? selectedVehicle.rate)} / hour</p>
               <p>Duration: {booking?.durationHours || booking?.duration || durationHours} hour(s)</p>
               <p>Total amount: {formatCurrency(booking?.totalAmount ?? booking?.amount ?? calculatedAmount)}</p>
             </div>

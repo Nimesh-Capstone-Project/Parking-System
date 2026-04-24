@@ -17,7 +17,7 @@ const statusStyles = {
   },
 };
 
-export const SlotCard = ({ slot, action, actionLabel, disabled }) => {
+export const SlotCard = ({ slot, action, actionLabel, disabled, priceLabel }) => {
   const style = statusStyles[slot.status] || statusStyles.blocked;
 
   return (
@@ -38,7 +38,7 @@ export const SlotCard = ({ slot, action, actionLabel, disabled }) => {
             <span className={`status-dot ${style.dot}`} />
             <span className="text-sm text-slate">Real-time status</span>
           </div>
-          <p className="text-lg font-semibold">Rs {slot.price}</p>
+          <p className="text-right text-sm font-semibold">{priceLabel || "Pricing unavailable"}</p>
         </div>
       </div>
 

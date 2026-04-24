@@ -40,6 +40,10 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    ratePerHour: {
+      type: Number,
+      default: null,
+    },
     amount: {
       type: Number,
       required: true,

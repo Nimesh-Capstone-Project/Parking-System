@@ -1,11 +1,8 @@
 const Booking = require("../models/Booking");
 const { internalHeaders, notificationClient, parkingClient } = require("../config/http");
+const { calculateTotalAmount, getPricingConfig, getRatePerHour } = require("../utils/pricing");
 
 const buildBookingId = () => `BKG-${Date.now()}${Math.floor(Math.random() * 1000)}`;
-const VEHICLE_RATES = {
-  "2-wheeler": 20,
-  "4-wheeler": 40,
-};
 
 const parseBookingWindow = ({ startTime, endTime, duration }) => {
   if (!startTime && !endTime && (duration === undefined || duration === null || duration === "")) {
@@ -131,7 +128,7 @@ const createBooking = async (req, res) => {
     }
 
     const shouldUseDynamicPricing = Boolean(vehicleType || bookingWindow);
-    if (shouldUseDynamicPricing && !VEHICLE_RATES[vehicleType]) {
+    if (shouldUseDynamicPricing && !getRatePerHour(vehicleType)) {
       return res.status(400).json({ message: "vehicleType must be either 2-wheeler or 4-wheeler" });
     }
 
@@ -150,9 +147,11 @@ const createBooking = async (req, res) => {
       }
     }
 
-    const totalAmount = shouldUseDynamicPricing
-      ? Number((VEHICLE_RATES[vehicleType] * bookingWindow.durationHours).toFixed(2))
-      : slot.price;
+    const pricingDetails = shouldUseDynamicPricing
+      ? calculateTotalAmount({ vehicleType, durationHours: bookingWindow.durationHours })
+      : null;
+    const totalAmount = pricingDetails?.totalAmount ?? slot.price;
+    const ratePerHour = pricingDetails?.ratePerHour ?? null;
 
     const booking = await Booking.create({
       bookingId: buildBookingId(),
@@ -164,6 +163,7 @@ const createBooking = async (req, res) => {
       endTime: bookingWindow?.endTime || null,
       duration: bookingWindow?.durationHours ?? null,
       durationHours: bookingWindow?.durationHours ?? null,
+      ratePerHour,
       amount: totalAmount,
       totalAmount,
       status: "pending",
@@ -190,6 +190,7 @@ const createBooking = async (req, res) => {
         vehicleType: booking.vehicleType,
         startTime: booking.startTime,
         endTime: booking.endTime,
+        ratePerHour: booking.ratePerHour,
         durationHours: booking.durationHours,
         amount: booking.totalAmount,
       },
@@ -217,6 +218,8 @@ const getBookingById = async (req, res) => {
   }
   return res.json(booking);
 };
+
+const getPricing = async (_req, res) => res.json(getPricingConfig());
 
 const cancelBooking = async (req, res) => {
   try {
@@ -282,6 +285,7 @@ const confirmBookingInternal = async (req, res) => {
       metadata: {
         slotId: booking.slotId,
         vehicleType: booking.vehicleType,
+        ratePerHour: booking.ratePerHour,
         durationHours: booking.durationHours,
         amount: booking.totalAmount,
       },
@@ -390,5 +394,6 @@ module.exports = {
   getBookingById,
   getBookingInternal,
   getBookings,
+  getPricing,
 };
 

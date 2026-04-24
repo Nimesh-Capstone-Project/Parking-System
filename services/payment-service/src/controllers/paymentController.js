@@ -11,6 +11,7 @@ const buildPaymentSummary = (booking) => ({
   endTime: booking.endTime,
   duration: booking.duration ?? booking.durationHours ?? null,
   durationHours: booking.durationHours ?? booking.duration ?? null,
+  ratePerHour: booking.ratePerHour ?? null,
   totalAmount: booking.totalAmount ?? booking.amount,
 });
 
