@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: auth-container
-          image: nimeshsv814/auth-service:latest
+          image: nimeshsv814/auth-service:v1.0.0
           ports:
             - containerPort: 4001
           envFrom:
