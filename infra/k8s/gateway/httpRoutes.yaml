@@ -6,18 +6,18 @@ metadata:
 spec:
   parentRefs:
     - name: sps-gateway
+      sectionName: http
   rules:
     - matches:
         - path:
             type: PathPrefix
-            value: /
-      backendRefs:
-        - name: frontend-svc
-          port: 80
-    - matches:
-        - path:
-            type: PathPrefix
             value: /auth
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
       backendRefs:
         - name: auth-service
           port: 4001
@@ -25,13 +25,25 @@ spec:
         - path:
             type: PathPrefix
             value: /parking
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
       backendRefs:
-        - name: parking-service
+        - name: parking-svc
           port: 4002
     - matches:
         - path:
             type: PathPrefix
             value: /booking
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
       backendRefs:
         - name: booking-service
           port: 4003
@@ -39,13 +51,32 @@ spec:
         - path:
             type: PathPrefix
             value: /payment
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
       backendRefs:
-        - name: payment-service
+        - name: payment-svc
           port: 4004
     - matches:
         - path:
             type: PathPrefix
             value: /notification
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
       backendRefs:
-        - name: notification-service
+        - name: notification-svc
           port: 4006
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: frontend-svc
+          port: 80
