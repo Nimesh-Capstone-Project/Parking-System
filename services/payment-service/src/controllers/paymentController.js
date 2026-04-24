@@ -3,6 +3,16 @@ const { bookingClient, internalHeaders, notificationClient } = require("../confi
 
 const buildPaymentId = () => `PAY-${Date.now()}${Math.floor(Math.random() * 1000)}`;
 const buildTransactionRef = () => `TXN-${Date.now()}${Math.floor(Math.random() * 10000)}`;
+const buildPaymentSummary = (booking) => ({
+  bookingId: booking.bookingId,
+  slotId: booking.slotId,
+  vehicleType: booking.vehicleType,
+  startTime: booking.startTime,
+  endTime: booking.endTime,
+  duration: booking.duration ?? booking.durationHours ?? null,
+  durationHours: booking.durationHours ?? booking.duration ?? null,
+  totalAmount: booking.totalAmount ?? booking.amount,
+});
 
 const sendNotification = async ({ recipientUserId, bookingId, type, message, metadata = {} }) => {
   try {
@@ -35,11 +45,15 @@ const processPayment = async (req, res) => {
       return res.status(400).json({ message: `Cannot pay for a ${booking.status} booking` });
     }
 
+    const summary = buildPaymentSummary(booking);
+
     const payment = await Payment.create({
       paymentId: buildPaymentId(),
       bookingId,
       userId: booking.userId,
-      amount: booking.amount,
+      vehicleType: booking.vehicleType || null,
+      durationHours: booking.durationHours ?? booking.duration ?? null,
+      amount: summary.totalAmount,
       method,
       status: simulateSuccess ? "success" : "failed",
       transactionRef: buildTransactionRef(),
@@ -56,10 +70,11 @@ const processPayment = async (req, res) => {
         bookingId,
         type: "payment_success",
         message: `Payment successful for booking ${bookingId}.`,
-        metadata: { amount: booking.amount, method, paymentId: payment.paymentId },
+        metadata: { ...summary, method, paymentId: payment.paymentId },
       });
       return res.json({
         message: "Payment successful",
+        summary,
         payment,
         booking: confirmResponse.data.booking,
       });
@@ -75,11 +90,12 @@ const processPayment = async (req, res) => {
       bookingId,
       type: "payment_failed",
       message: `Payment failed for booking ${bookingId}.`,
-      metadata: { amount: booking.amount, method, paymentId: payment.paymentId },
+      metadata: { ...summary, method, paymentId: payment.paymentId },
     });
 
     return res.status(400).json({
       message: "Payment failed",
+      summary,
       payment,
       booking: cancelResponse.data.booking,
     });

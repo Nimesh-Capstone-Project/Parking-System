@@ -15,6 +15,14 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    vehicleType: {
+      type: String,
+      default: null,
+    },
+    durationHours: {
+      type: Number,
+      default: null,
+    },
     amount: {
       type: Number,
       required: true,

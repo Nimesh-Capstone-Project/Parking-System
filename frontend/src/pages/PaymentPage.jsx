@@ -1,38 +1,124 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { bookingApi, getApiError, paymentApi } from "../api/client";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { bookingApi, getApiError, parkingApi, paymentApi } from "../api/client";
 import { Loader } from "../components/Loader";
 import { useToast } from "../context/ToastContext";
 
+const VEHICLE_OPTIONS = [
+  { value: "2-wheeler", label: "2-Wheeler", rate: 20 },
+  { value: "4-wheeler", label: "4-Wheeler", rate: 40 },
+];
+
+const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
+
+const toLocalDateTimeValue = (date) => {
+  const value = new Date(date);
+  const offset = value.getTimezoneOffset();
+  return new Date(value.getTime() - offset * 60000).toISOString().slice(0, 16);
+};
+
 export const PaymentPage = () => {
   const { bookingId } = useParams();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { pushToast } = useToast();
+  const slotId = searchParams.get("slotId") || location.state?.slot?.slotId || "";
   const [booking, setBooking] = useState(null);
+  const [slot, setSlot] = useState(location.state?.slot || null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [method, setMethod] = useState("card");
   const [simulateSuccess, setSimulateSuccess] = useState(true);
-  const { pushToast } = useToast();
-  const navigate = useNavigate();
+  const [vehicleType, setVehicleType] = useState("4-wheeler");
+  const [startTime, setStartTime] = useState(() => toLocalDateTimeValue(new Date(Date.now() + 60 * 60 * 1000)));
+  const [durationHours, setDurationHours] = useState("1");
+
+  const selectedVehicle = VEHICLE_OPTIONS.find((option) => option.value === vehicleType) || VEHICLE_OPTIONS[1];
+  const parsedDuration = Number(durationHours);
+  const calculatedAmount =
+    Number.isNaN(parsedDuration) || parsedDuration <= 0 ? 0 : Number((selectedVehicle.rate * parsedDuration).toFixed(2));
+
+  let derivedEndTime = "";
+  const parsedStartTime = new Date(startTime);
+  if (!Number.isNaN(parsedStartTime.getTime()) && !Number.isNaN(parsedDuration) && parsedDuration > 0) {
+    derivedEndTime = new Date(parsedStartTime.getTime() + parsedDuration * 60 * 60 * 1000).toLocaleString();
+  }
 
   useEffect(() => {
-    const loadBooking = async () => {
+    const loadState = async () => {
       try {
-        const response = await bookingApi.get(`/bookings/${bookingId}`);
-        setBooking(response.data);
+        if (bookingId) {
+          const response = await bookingApi.get(`/bookings/${bookingId}`);
+          setBooking(response.data);
+          return;
+        }
+
+        if (!slotId) {
+          return;
+        }
+
+        if (location.state?.slot?.slotId === slotId) {
+          setSlot(location.state.slot);
+          return;
+        }
+
+        const response = await parkingApi.get("/slots");
+        setSlot(response.data.find((item) => item.slotId === slotId) || null);
       } catch (error) {
-        pushToast({ title: "Failed to load booking", description: getApiError(error), tone: "error" });
+        pushToast({ title: "Failed to load payment details", description: getApiError(error), tone: "error" });
       } finally {
         setLoading(false);
       }
     };
 
-    loadBooking();
-  }, [bookingId, pushToast]);
+    loadState();
+  }, [bookingId, location.state, pushToast, slotId]);
 
   const handlePayment = async () => {
+    let redirectToBookings = Boolean(bookingId);
+
     try {
       setProcessing(true);
-      const response = await paymentApi.post("/payments/process", { bookingId, method, simulateSuccess });
+      let activeBookingId = bookingId;
+
+      if (!activeBookingId) {
+        const parsedStart = new Date(startTime);
+        const duration = Number(durationHours);
+
+        if (!slotId) {
+          pushToast({ title: "Slot missing", description: "Select a slot before paying.", tone: "error" });
+          return;
+        }
+
+        if (Number.isNaN(parsedStart.getTime())) {
+          pushToast({ title: "Start time required", description: "Choose a valid booking start time.", tone: "error" });
+          return;
+        }
+
+        if (Number.isNaN(duration) || duration <= 0) {
+          pushToast({ title: "Invalid duration", description: "Duration must be greater than zero.", tone: "error" });
+          return;
+        }
+
+        const bookingResponse = await bookingApi.post("/book-slot", {
+          slotId,
+          vehicleType,
+          startTime: parsedStart.toISOString(),
+          duration,
+        });
+
+        activeBookingId = bookingResponse.data.bookingId;
+        setBooking(bookingResponse.data.booking);
+        redirectToBookings = true;
+      }
+
+      const response = await paymentApi.post("/payments/process", {
+        bookingId: activeBookingId,
+        method,
+        simulateSuccess,
+      });
+
       pushToast({
         title: "Payment successful",
         description: `Booking ${response.data.booking.bookingId} is now confirmed.`,
@@ -41,7 +127,9 @@ export const PaymentPage = () => {
       navigate("/bookings");
     } catch (error) {
       pushToast({ title: "Payment result", description: getApiError(error), tone: "error" });
-      navigate("/bookings");
+      if (redirectToBookings) {
+        navigate("/bookings");
+      }
     } finally {
       setProcessing(false);
     }
@@ -51,38 +139,106 @@ export const PaymentPage = () => {
     return <Loader label="Loading payment details..." />;
   }
 
-  if (!booking) {
+  if (bookingId && !booking) {
     return <div className="glass-panel p-6 text-sm text-slate">Booking could not be found.</div>;
+  }
+
+  if (!bookingId && !slotId) {
+    return <div className="glass-panel p-6 text-sm text-slate">Select a slot to begin the booking flow.</div>;
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
       <section className="glass-panel p-6">
         <p className="text-sm uppercase tracking-[0.3em] text-slate">Checkout</p>
-        <h2 className="mt-3 font-serif text-5xl italic">Booking payment</h2>
+        <h2 className="mt-3 font-serif text-5xl italic">{booking ? "Booking payment" : "Complete your booking"}</h2>
         <p className="mt-4 max-w-xl text-slate">
-          Complete the mock payment to confirm your slot. If the payment fails or times out, the scheduler will release
-          the reservation automatically.
+          {booking
+            ? "Complete the mock payment to confirm your slot. If the payment fails or times out, the scheduler will release the reservation automatically."
+            : "Select your vehicle type and booking duration, review the price breakdown, and then complete payment."}
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl bg-white/70 p-5">
-            <p className="text-sm text-slate">Booking ID</p>
-            <p className="mt-2 text-xl font-semibold">{booking.bookingId}</p>
+            <p className="text-sm text-slate">{booking ? "Booking ID" : "Slot"}</p>
+            <p className="mt-2 text-xl font-semibold">{booking ? booking.bookingId : slotId}</p>
           </div>
           <div className="rounded-3xl bg-white/70 p-5">
-            <p className="text-sm text-slate">Slot</p>
-            <p className="mt-2 text-xl font-semibold">{booking.slotId}</p>
+            <p className="text-sm text-slate">{booking ? "Vehicle Type" : "Location"}</p>
+            <p className="mt-2 text-xl font-semibold">{booking ? booking.vehicleType || "Legacy booking" : slot?.location || "Loading..."}</p>
           </div>
           <div className="rounded-3xl bg-white/70 p-5">
             <p className="text-sm text-slate">Amount</p>
-            <p className="mt-2 text-xl font-semibold">Rs {booking.amount}</p>
+            <p className="mt-2 text-xl font-semibold">
+              {formatCurrency(booking?.totalAmount ?? booking?.amount ?? calculatedAmount)}
+            </p>
           </div>
         </div>
+
+        {!booking && (
+          <div className="mt-8 space-y-4 rounded-3xl border border-ink/10 bg-white/65 p-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium">Vehicle type</label>
+                <select className="input-shell" value={vehicleType} onChange={(event) => setVehicleType(event.target.value)}>
+                  {VEHICLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Duration (hours)</label>
+                <input
+                  className="input-shell"
+                  max="24"
+                  min="1"
+                  step="1"
+                  type="number"
+                  value={durationHours}
+                  onChange={(event) => setDurationHours(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">Start time</label>
+              <input
+                className="input-shell"
+                type="datetime-local"
+                value={startTime}
+                onChange={(event) => setStartTime(event.target.value)}
+              />
+            </div>
+
+            <div className="rounded-3xl border border-ink/10 bg-white/70 p-4">
+              <h3 className="text-lg font-semibold">Price summary</h3>
+              <div className="mt-3 space-y-2 text-sm text-slate">
+                <p>Vehicle: {selectedVehicle.label}</p>
+                <p>Rate: {formatCurrency(selectedVehicle.rate)} / hour</p>
+                <p>Start: {new Date(startTime).toLocaleString()}</p>
+                <p>End: {derivedEndTime || "Choose a valid duration"}</p>
+                <p>Duration: {durationHours} hour(s)</p>
+                <p className="font-semibold text-ink">Total: {formatCurrency(calculatedAmount)}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="glass-panel p-6">
-        <h3 className="text-2xl font-semibold">Mock payment panel</h3>
+        <h3 className="text-2xl font-semibold">{booking ? "Mock payment panel" : "Payment confirmation"}</h3>
         <div className="mt-6 space-y-4">
+          <div className="rounded-3xl border border-ink/10 bg-white/70 p-4">
+            <p className="text-sm font-medium">Summary</p>
+            <div className="mt-3 space-y-2 text-sm text-slate">
+              <p>Slot: {booking?.slotId || slotId}</p>
+              <p>Vehicle: {booking?.vehicleType || selectedVehicle.label}</p>
+              <p>Duration: {booking?.durationHours || booking?.duration || durationHours} hour(s)</p>
+              <p>Total amount: {formatCurrency(booking?.totalAmount ?? booking?.amount ?? calculatedAmount)}</p>
+            </div>
+          </div>
+
           <div>
             <label className="mb-2 block text-sm font-medium">Payment method</label>
             <select className="input-shell" value={method} onChange={(event) => setMethod(event.target.value)}>
@@ -91,6 +247,7 @@ export const PaymentPage = () => {
               <option value="wallet">Wallet</option>
             </select>
           </div>
+
           <div className="rounded-3xl border border-ink/10 bg-white/70 p-4">
             <p className="text-sm font-medium">Simulation mode</p>
             <div className="mt-3 flex gap-3">
@@ -110,12 +267,14 @@ export const PaymentPage = () => {
               </button>
             </div>
           </div>
+
           <button type="button" className="button-primary w-full" onClick={handlePayment} disabled={processing}>
-            {processing ? "Processing payment..." : `Pay Rs ${booking.amount}`}
+            {processing
+              ? "Processing payment..."
+              : `Pay ${formatCurrency(booking?.totalAmount ?? booking?.amount ?? calculatedAmount)}`}
           </button>
         </div>
       </section>
     </div>
   );
 };
-

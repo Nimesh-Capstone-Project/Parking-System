@@ -16,6 +16,7 @@ const router = express.Router();
 
 router.get("/health", (_req, res) => res.json({ service: "booking-service", status: "ok" }));
 router.post("/bookings", authenticate, createBooking);
+router.post("/book-slot", authenticate, createBooking);
 router.get("/bookings", authenticate, getBookings);
 router.get("/bookings/:bookingId", authenticate, getBookingById);
 router.post("/bookings/:bookingId/cancel", authenticate, cancelBooking);

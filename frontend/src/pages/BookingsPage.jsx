@@ -32,11 +32,11 @@ export const BookingsPage = () => {
     loadBookings();
   }, []);
 
-  const handleCancel = async (bookingId) => {
+  const handleCancel = async (currentBookingId) => {
     try {
-      setActiveBookingId(bookingId);
-      await bookingApi.post(`/bookings/${bookingId}/cancel`);
-      pushToast({ title: "Booking cancelled", description: `${bookingId} was cancelled.`, tone: "success" });
+      setActiveBookingId(currentBookingId);
+      await bookingApi.post(`/bookings/${currentBookingId}/cancel`);
+      pushToast({ title: "Booking cancelled", description: `${currentBookingId} was cancelled.`, tone: "success" });
       await loadBookings();
     } catch (error) {
       pushToast({ title: "Cancel failed", description: getApiError(error), tone: "error" });
@@ -69,7 +69,12 @@ export const BookingsPage = () => {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-slate">
-                  Slot {booking.slotId} • Rs {booking.amount} • Created {new Date(booking.createdAt).toLocaleString()}
+                  Slot {booking.slotId} | {booking.vehicleType || "Legacy booking"} | Created {new Date(booking.createdAt).toLocaleString()}
+                </p>
+                <p className="mt-2 text-sm text-slate">
+                  {booking.startTime && booking.endTime
+                    ? `${new Date(booking.startTime).toLocaleString()} to ${new Date(booking.endTime).toLocaleString()} | ${booking.durationHours || booking.duration} hour(s) | Rs ${booking.totalAmount || booking.amount}`
+                    : `Rs ${booking.totalAmount || booking.amount}`}
                 </p>
                 {booking.status === "pending" && (
                   <p className="mt-2 text-sm text-amber-900">
@@ -102,4 +107,3 @@ export const BookingsPage = () => {
     </div>
   );
 };
-

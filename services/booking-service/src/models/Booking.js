@@ -19,7 +19,32 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    vehicleType: {
+      type: String,
+      enum: ["2-wheeler", "4-wheeler"],
+      default: null,
+    },
+    startTime: {
+      type: Date,
+      default: null,
+    },
+    endTime: {
+      type: Date,
+      default: null,
+    },
+    duration: {
+      type: Number,
+      default: null,
+    },
+    durationHours: {
+      type: Number,
+      default: null,
+    },
     amount: {
+      type: Number,
+      required: true,
+    },
+    totalAmount: {
       type: Number,
       required: true,
     },

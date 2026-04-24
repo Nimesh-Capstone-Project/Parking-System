@@ -30,7 +30,13 @@ Seeded by: `services/parking-service/src/scripts/seed.js`
 - `userId`: string, required
 - `userEmail`: string, required
 - `slotId`: string, required
+- `vehicleType`: enum(`2-wheeler`, `4-wheeler`), nullable
+- `startTime`: date, nullable
+- `endTime`: date, nullable
+- `duration`: number, nullable
+- `durationHours`: number, nullable
 - `amount`: number, required
+- `totalAmount`: number, required
 - `status`: enum(`pending`, `confirmed`, `cancelled`, `expired`)
 - `timestamp`: date
 - `expiresAt`: date
@@ -45,6 +51,8 @@ Seeded by: `services/parking-service/src/scripts/seed.js`
 - `paymentId`: string, unique, required
 - `bookingId`: string, required
 - `userId`: string, required
+- `vehicleType`: string, nullable
+- `durationHours`: number, nullable
 - `amount`: number, required
 - `method`: enum(`card`, `upi`, `wallet`)
 - `status`: enum(`success`, `failed`)

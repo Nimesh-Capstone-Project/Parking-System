@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { bookingApi, getApiError, parkingApi } from "../api/client";
+import { getApiError, parkingApi } from "../api/client";
 import { Loader } from "../components/Loader";
 import { SlotCard } from "../components/SlotCard";
 import { useToast } from "../context/ToastContext";
@@ -28,20 +28,9 @@ export const SlotsPage = () => {
     loadSlots();
   }, []);
 
-  const handleBook = async (slotId) => {
-    try {
-      setBookingSlotId(slotId);
-      const response = await bookingApi.post("/bookings", { slotId });
-      pushToast({
-        title: "Booking created",
-        description: `Booking ${response.data.booking.bookingId} is pending payment.`,
-        tone: "success",
-      });
-      navigate(`/payment/${response.data.booking.bookingId}`);
-    } catch (error) {
-      pushToast({ title: "Booking failed", description: getApiError(error), tone: "error" });
-      setBookingSlotId("");
-    }
+  const handleBook = (slot) => {
+    setBookingSlotId(slot.slotId);
+    navigate(`/payment?slotId=${encodeURIComponent(slot.slotId)}`, { state: { slot } });
   };
 
   const filteredSlots = filter === "all" ? slots : slots.filter((slot) => slot.status === filter);
@@ -76,8 +65,8 @@ export const SlotsPage = () => {
           <SlotCard
             key={slot.slotId}
             slot={slot}
-            action={slot.status === "available" ? () => handleBook(slot.slotId) : null}
-            actionLabel={bookingSlotId === slot.slotId ? "Creating booking..." : "Book now"}
+            action={slot.status === "available" ? () => handleBook(slot) : null}
+            actionLabel={bookingSlotId === slot.slotId ? "Opening checkout..." : "Book now"}
             disabled={bookingSlotId === slot.slotId}
           />
         ))}

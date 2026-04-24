@@ -2,6 +2,69 @@ const Booking = require("../models/Booking");
 const { internalHeaders, notificationClient, parkingClient } = require("../config/http");
 
 const buildBookingId = () => `BKG-${Date.now()}${Math.floor(Math.random() * 1000)}`;
+const VEHICLE_RATES = {
+  "2-wheeler": 20,
+  "4-wheeler": 40,
+};
+
+const parseBookingWindow = ({ startTime, endTime, duration }) => {
+  if (!startTime && !endTime && (duration === undefined || duration === null || duration === "")) {
+    return null;
+  }
+
+  const parsedStart = new Date(startTime);
+  if (Number.isNaN(parsedStart.getTime())) {
+    return { error: "A valid startTime is required" };
+  }
+
+  let durationHours = duration !== undefined && duration !== null && duration !== "" ? Number(duration) : null;
+  const parsedEnd = endTime ? new Date(endTime) : null;
+
+  if (parsedEnd && Number.isNaN(parsedEnd.getTime())) {
+    return { error: "endTime must be a valid date" };
+  }
+
+  if (!parsedEnd && (durationHours === null || Number.isNaN(durationHours))) {
+    return { error: "Provide either a valid endTime or duration" };
+  }
+
+  if (parsedEnd && durationHours === null) {
+    durationHours = Number(((parsedEnd.getTime() - parsedStart.getTime()) / (60 * 60 * 1000)).toFixed(2));
+  }
+
+  if (durationHours === null || Number.isNaN(durationHours) || durationHours <= 0) {
+    return { error: "duration must be a positive number of hours" };
+  }
+
+  const resolvedEnd =
+    parsedEnd || new Date(parsedStart.getTime() + Math.round(durationHours * 60 * 60 * 1000));
+
+  if (resolvedEnd <= parsedStart) {
+    return { error: "endTime must be after startTime" };
+  }
+
+  if (parsedEnd) {
+    const derivedDuration = Number(((resolvedEnd.getTime() - parsedStart.getTime()) / (60 * 60 * 1000)).toFixed(2));
+    if (Math.abs(derivedDuration - durationHours) > 0.01) {
+      return { error: "endTime and duration do not match" };
+    }
+    durationHours = derivedDuration;
+  }
+
+  return {
+    startTime: parsedStart,
+    endTime: resolvedEnd,
+    durationHours,
+  };
+};
+
+const buildBookingResponse = (booking) => ({
+  message: "Booking created",
+  booking,
+  bookingId: booking.bookingId,
+  totalAmount: booking.totalAmount,
+  status: booking.status,
+});
 
 const sendNotification = async ({ recipientUserId, bookingId, type, message, metadata = {} }) => {
   try {
@@ -38,7 +101,7 @@ const occupySlot = async (slotId, bookingId) => {
 
 const createBooking = async (req, res) => {
   try {
-    const { slotId } = req.body;
+    const { slotId, vehicleType, startTime, endTime, duration, durationHours } = req.body;
     if (!slotId) {
       return res.status(400).json({ message: "slotId is required" });
     }
@@ -52,12 +115,57 @@ const createBooking = async (req, res) => {
       return res.status(409).json({ message: "Selected slot is not available" });
     }
 
+    const requestedDuration = durationHours ?? duration;
+    const bookingWindow = parseBookingWindow({
+      startTime,
+      endTime,
+      duration: requestedDuration,
+    });
+
+    if (bookingWindow?.error) {
+      return res.status(400).json({ message: bookingWindow.error });
+    }
+
+    if (vehicleType && !bookingWindow) {
+      return res.status(400).json({ message: "Provide startTime and endTime or duration with vehicleType" });
+    }
+
+    const shouldUseDynamicPricing = Boolean(vehicleType || bookingWindow);
+    if (shouldUseDynamicPricing && !VEHICLE_RATES[vehicleType]) {
+      return res.status(400).json({ message: "vehicleType must be either 2-wheeler or 4-wheeler" });
+    }
+
+    if (bookingWindow) {
+      const overlappingBooking = await Booking.findOne({
+        slotId,
+        status: { $in: ["pending", "confirmed"] },
+        startTime: { $lt: bookingWindow.endTime },
+        endTime: { $gt: bookingWindow.startTime },
+      });
+
+      if (overlappingBooking) {
+        return res.status(409).json({
+          message: "Selected slot is not available for the full requested duration",
+        });
+      }
+    }
+
+    const totalAmount = shouldUseDynamicPricing
+      ? Number((VEHICLE_RATES[vehicleType] * bookingWindow.durationHours).toFixed(2))
+      : slot.price;
+
     const booking = await Booking.create({
       bookingId: buildBookingId(),
       userId: req.user.id,
       userEmail: req.user.email,
       slotId,
-      amount: slot.price,
+      vehicleType: shouldUseDynamicPricing ? vehicleType : null,
+      startTime: bookingWindow?.startTime || null,
+      endTime: bookingWindow?.endTime || null,
+      duration: bookingWindow?.durationHours ?? null,
+      durationHours: bookingWindow?.durationHours ?? null,
+      amount: totalAmount,
+      totalAmount,
       status: "pending",
       timestamp: new Date(),
       expiresAt: new Date(Date.now() + Number(process.env.BOOKING_HOLD_MINUTES || 10) * 60 * 1000),
@@ -77,10 +185,17 @@ const createBooking = async (req, res) => {
       bookingId: booking.bookingId,
       type: "booking_pending",
       message: `Booking ${booking.bookingId} created for slot ${slotId}. Complete payment before expiration.`,
-      metadata: { slotId, amount: slot.price },
+      metadata: {
+        slotId,
+        vehicleType: booking.vehicleType,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        durationHours: booking.durationHours,
+        amount: booking.totalAmount,
+      },
     });
 
-    return res.status(201).json({ message: "Booking created", booking });
+    return res.status(201).json(buildBookingResponse(booking));
   } catch (error) {
     return res.status(500).json({ message: "Failed to create booking", error: error.message });
   }
@@ -164,7 +279,12 @@ const confirmBookingInternal = async (req, res) => {
       bookingId: booking.bookingId,
       type: "booking_confirmed",
       message: `Booking ${booking.bookingId} has been confirmed.`,
-      metadata: { slotId: booking.slotId, amount: booking.amount },
+      metadata: {
+        slotId: booking.slotId,
+        vehicleType: booking.vehicleType,
+        durationHours: booking.durationHours,
+        amount: booking.totalAmount,
+      },
     });
 
     return res.json({ message: "Booking confirmed", booking });

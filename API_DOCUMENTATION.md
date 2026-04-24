@@ -67,9 +67,36 @@ Request:
 Request:
 ```json
 {
-  "slotId": "A-101"
+  "slotId": "A-101",
+  "vehicleType": "4-wheeler",
+  "startTime": "2026-04-24T10:00:00.000Z",
+  "duration": 2
 }
 ```
+Response:
+```json
+{
+  "message": "Booking created",
+  "bookingId": "BKG-123456",
+  "totalAmount": 80,
+  "status": "pending",
+  "booking": {
+    "bookingId": "BKG-123456",
+    "slotId": "A-101",
+    "vehicleType": "4-wheeler",
+    "startTime": "2026-04-24T10:00:00.000Z",
+    "endTime": "2026-04-24T12:00:00.000Z",
+    "duration": 2,
+    "durationHours": 2,
+    "amount": 80,
+    "totalAmount": 80,
+    "status": "pending"
+  }
+}
+```
+
+### `POST /book-slot`
+Alias of `POST /bookings` for the enhanced booking flow.
 
 ### `GET /bookings`
 User sees own bookings. Admin sees all.
@@ -95,6 +122,16 @@ Response:
 ```json
 {
   "message": "Payment successful",
+  "summary": {
+    "bookingId": "BKG-123456",
+    "slotId": "A-101",
+    "vehicleType": "4-wheeler",
+    "startTime": "2026-04-24T10:00:00.000Z",
+    "endTime": "2026-04-24T12:00:00.000Z",
+    "duration": 2,
+    "durationHours": 2,
+    "totalAmount": 80
+  },
   "payment": {
     "paymentId": "PAY-123456",
     "status": "success"
@@ -105,6 +142,11 @@ Response:
   }
 }
 ```
+
+Pricing rules:
+
+- `2-wheeler`: `Rs 20/hour`
+- `4-wheeler`: `Rs 40/hour`
 
 ## Notification Service (`http://localhost:4006`)
 
