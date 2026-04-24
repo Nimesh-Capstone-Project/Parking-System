@@ -5,6 +5,7 @@ const { bookingClient, internalHeaders, notificationClient } = require("../confi
 
 const buildPaymentId = () => `PAY-${Date.now()}${Math.floor(Math.random() * 1000)}`;
 const buildTransactionRef = () => `TXN-${Date.now()}${Math.floor(Math.random() * 10000)}`;
+const getTrimmedEnv = (name) => (process.env[name] || "").trim();
 const buildPaymentSummary = (booking) => ({
   bookingId: booking.bookingId,
   slotId: booking.slotId,
@@ -19,8 +20,8 @@ const buildPaymentSummary = (booking) => ({
 
 const getRazorpayClient = () =>
   new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_id: getTrimmedEnv("RAZORPAY_KEY_ID"),
+    key_secret: getTrimmedEnv("RAZORPAY_KEY_SECRET"),
   });
 
 const getBookingForPayment = async ({ bookingId, user }) => {
@@ -122,7 +123,10 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ message: "bookingId is required" });
     }
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    const razorpayKeyId = getTrimmedEnv("RAZORPAY_KEY_ID");
+    const razorpayKeySecret = getTrimmedEnv("RAZORPAY_KEY_SECRET");
+
+    if (!razorpayKeyId || !razorpayKeySecret) {
       return res.status(500).json({ message: "Razorpay credentials are not configured" });
     }
 
@@ -154,6 +158,14 @@ const createOrder = async (req, res) => {
       },
     });
 
+    console.log("Order Response:", {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      bookingId,
+      keyId: razorpayKeyId,
+    });
+
     await Payment.create({
       paymentId: buildPaymentId(),
       bookingId,
@@ -172,7 +184,7 @@ const createOrder = async (req, res) => {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID,
+      keyId: razorpayKeyId,
       bookingId,
       summary,
     });
@@ -196,8 +208,13 @@ const verifyPayment = async (req, res) => {
       return res.status(error.status).json({ message: error.message });
     }
 
+    const razorpayKeySecret = getTrimmedEnv("RAZORPAY_KEY_SECRET");
+    if (!razorpayKeySecret) {
+      return res.status(500).json({ message: "Razorpay credentials are not configured" });
+    }
+
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .createHmac("sha256", razorpayKeySecret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 

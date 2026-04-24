@@ -4,6 +4,7 @@ import { bookingApi, getApiError, parkingApi, paymentApi } from "../api/client";
 import { Loader } from "../components/Loader";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { loadRazorpayScript } from "../utils/loadRazorpayScript";
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
 
@@ -28,21 +29,6 @@ export const PaymentPage = () => {
   const [vehicleType, setVehicleType] = useState("2-wheeler");
   const [startTime, setStartTime] = useState(() => toLocalDateTimeValue(new Date(Date.now() + 60 * 60 * 1000)));
   const [durationHours, setDurationHours] = useState("1");
-
-  const loadRazorpayScript = () =>
-    new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
 
   const vehicleOptions = [
     { value: "2-wheeler", label: "2-Wheeler", rate: slot?.pricing?.twoWheeler ?? 0 },
@@ -133,35 +119,73 @@ export const PaymentPage = () => {
 
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
-        throw new Error("Failed to load Razorpay checkout");
+        alert("Razorpay SDK failed to load");
+        setProcessing(false);
+        return;
+      }
+
+      if (!window.Razorpay) {
+        console.log("Razorpay Loaded:", !!window.Razorpay);
+        alert("Razorpay not loaded");
+        setProcessing(false);
+        return;
       }
 
       const orderResponse = await paymentApi.post("/create-order", {
         bookingId: activeBookingId,
         amount: activeBooking?.totalAmount ?? activeBooking?.amount ?? calculatedAmount,
       });
+      const orderData = orderResponse.data;
+
+      console.log("Order Response:", orderData);
+      console.log("Razorpay Loaded:", !!window.Razorpay);
+
+      const keyId = (orderData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "").trim();
+      if (!keyId) {
+        throw new Error("Razorpay keyId is missing");
+      }
+
+      if (!orderData.orderId) {
+        throw new Error("Razorpay order_id is missing");
+      }
+
+      const verifyPayment = async (response) => {
+        const verifyResponse = await paymentApi.post("/verify-payment", {
+          bookingId: activeBookingId,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        });
+
+        pushToast({
+          title: "Payment successful",
+          description: `Booking ${verifyResponse.data.booking.bookingId} is now confirmed.`,
+          tone: "success",
+        });
+        navigate("/bookings");
+      };
 
       const options = {
-        key: orderResponse.data.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: orderResponse.data.amount,
-        currency: orderResponse.data.currency,
+        key: keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
         name: "Smart Parking System",
         description: "Slot Booking Payment",
-        order_id: orderResponse.data.orderId,
+        order_id: orderData.orderId,
         prefill: {
           name: user?.name || "",
           email: user?.email || "",
           contact: "",
         },
         theme: {
-          color: "#0f766e",
+          color: "#3399cc",
         },
         modal: {
           ondismiss: async () => {
             try {
               await paymentApi.post("/payments/fail", {
                 bookingId: activeBookingId,
-                razorpay_order_id: orderResponse.data.orderId,
+                razorpay_order_id: orderData.orderId,
                 reason: "Payment cancelled",
               });
             } catch (_error) {
@@ -171,21 +195,9 @@ export const PaymentPage = () => {
             }
           },
         },
-        handler: async (response) => {
+        handler: async function (response) {
           try {
-            const verifyResponse = await paymentApi.post("/verify-payment", {
-              bookingId: activeBookingId,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-
-            pushToast({
-              title: "Payment successful",
-              description: `Booking ${verifyResponse.data.booking.bookingId} is now confirmed.`,
-              tone: "success",
-            });
-            navigate("/bookings");
+            await verifyPayment(response);
           } catch (error) {
             pushToast({ title: "Verification failed", description: getApiError(error), tone: "error" });
             navigate("/bookings");
@@ -200,7 +212,7 @@ export const PaymentPage = () => {
         try {
           await paymentApi.post("/payments/fail", {
             bookingId: activeBookingId,
-            razorpay_order_id: orderResponse.data.orderId,
+            razorpay_order_id: orderData.orderId,
             reason: response.error?.description || "Payment failed",
           });
         } catch (_error) {
@@ -217,6 +229,7 @@ export const PaymentPage = () => {
       });
       razorpay.open();
     } catch (error) {
+      setProcessing(false);
       pushToast({ title: "Payment result", description: getApiError(error), tone: "error" });
       if (redirectToBookings) {
         navigate("/bookings");
