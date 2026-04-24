@@ -16,7 +16,7 @@ spec:
   template:
     metadata:
       labels:
-        app: sps
+        app: sps-notification
     spec:
       containers:
         - name: notification-container
