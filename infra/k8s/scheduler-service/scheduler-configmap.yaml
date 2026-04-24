@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-configmap
+  namespace: sps-ns
+data:
+  PORT: 4005
+  BOOKING_SERVICE_URL: http://booking-service:4003
+  INTERNAL_API_KEY: smartparking_internal_key
+  CRON_SCHEDULE: * * * * *
+
+
+

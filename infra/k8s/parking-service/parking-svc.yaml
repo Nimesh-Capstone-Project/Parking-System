@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: parking-svc
+  namespace: sps-ns
+spec:
+  selector:
+    app: sps-parking
+  ports:
+    - port: 4002
+      targetPort: 4002
+  type: ClusterIP

@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deploy
+  namespace: sps-ns
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sps-mongo
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: sps-mongo
+    spec:
+      containers:
+        - name: mongodb-cont
+          image: mongo
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"
+  #         volumeMounts:
+  #           - name: mongo-vct
+  #             mountPath: /data/db
+  # volumeClaimTemplates:
+  #   - metadata:
+  #       name: mongo-vct
+  #     spec:
+  #       accessModes: ["ReadWriteMany"]
+  #       storageClassName: "sujitha-sc"
+  #       resources:
+  #         requests:
+  #           storage: 2Gi
+    
+
+    
