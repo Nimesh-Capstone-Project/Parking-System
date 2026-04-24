@@ -20,9 +20,9 @@ spec:
     spec:
       containers:
         - name: frontend-container
-          image: nimeshsv814/frontend:v1.0.2
+          image: nimeshsv814/frontend:v1.1.0
           ports:
-            - containerPort: 5173
+            - containerPort: 80
           envFrom:
             - configMapRef:
                 name: frontend-configmap
