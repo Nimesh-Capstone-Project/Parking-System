@@ -9,14 +9,12 @@ const {
   getBookingById,
   getBookingInternal,
   getBookings,
-  getPricing,
 } = require("../controllers/bookingController");
 const { authenticate, requireInternalKey } = require("../middleware/auth");
 
 const router = express.Router();
 
 router.get("/health", (_req, res) => res.json({ service: "booking-service", status: "ok" }));
-router.get("/pricing", authenticate, getPricing);
 router.post("/bookings", authenticate, createBooking);
 router.post("/book-slot", authenticate, createBooking);
 router.get("/bookings", authenticate, getBookings);

@@ -18,6 +18,18 @@ const slotSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    vehiclePricing: {
+      twoWheeler: {
+        type: Number,
+        min: 0,
+        default: null,
+      },
+      fourWheeler: {
+        type: Number,
+        min: 0,
+        default: null,
+      },
+    },
     price: {
       type: Number,
       required: true,

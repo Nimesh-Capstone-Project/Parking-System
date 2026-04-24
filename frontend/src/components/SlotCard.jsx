@@ -38,7 +38,9 @@ export const SlotCard = ({ slot, action, actionLabel, disabled, priceLabel }) =>
             <span className={`status-dot ${style.dot}`} />
             <span className="text-sm text-slate">Real-time status</span>
           </div>
-          <p className="text-right text-sm font-semibold">{priceLabel || "Pricing unavailable"}</p>
+          <p className="text-right text-sm font-semibold">
+            {priceLabel || `2W Rs ${slot.pricing?.twoWheeler ?? "-"} / hr | 4W Rs ${slot.pricing?.fourWheeler ?? "-"} / hr`}
+          </p>
         </div>
       </div>
 

@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { bookingApi, getApiError, parkingApi } from "../api/client";
+import { getApiError, parkingApi } from "../api/client";
 import { Loader } from "../components/Loader";
 import { SlotCard } from "../components/SlotCard";
 import { useToast } from "../context/ToastContext";
 
 export const SlotsPage = () => {
   const [slots, setSlots] = useState([]);
-  const [pricing, setPricing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bookingSlotId, setBookingSlotId] = useState("");
   const [filter, setFilter] = useState("all");
@@ -16,9 +15,8 @@ export const SlotsPage = () => {
 
   const loadSlots = async () => {
     try {
-      const [slotsResponse, pricingResponse] = await Promise.all([parkingApi.get("/slots"), bookingApi.get("/pricing")]);
-      setSlots(slotsResponse.data);
-      setPricing(pricingResponse.data);
+      const response = await parkingApi.get("/slots");
+      setSlots(response.data);
     } catch (error) {
       pushToast({ title: "Failed to load slots", description: getApiError(error), tone: "error" });
     } finally {
@@ -70,7 +68,7 @@ export const SlotsPage = () => {
             action={slot.status === "available" ? () => handleBook(slot) : null}
             actionLabel={bookingSlotId === slot.slotId ? "Opening checkout..." : "Book now"}
             disabled={bookingSlotId === slot.slotId}
-            priceLabel={pricing ? `Starts at Rs ${pricing.startingPricePerHour}/hr` : "Loading pricing..."}
+            priceLabel={`2W Rs ${slot.pricing?.twoWheeler ?? "-"} / hr | 4W Rs ${slot.pricing?.fourWheeler ?? "-"} / hr`}
           />
         ))}
       </div>

@@ -21,7 +21,6 @@ export const PaymentPage = () => {
   const slotId = searchParams.get("slotId") || location.state?.slot?.slotId || "";
   const [booking, setBooking] = useState(null);
   const [slot, setSlot] = useState(location.state?.slot || null);
-  const [pricing, setPricing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [method, setMethod] = useState("card");
@@ -30,13 +29,10 @@ export const PaymentPage = () => {
   const [startTime, setStartTime] = useState(() => toLocalDateTimeValue(new Date(Date.now() + 60 * 60 * 1000)));
   const [durationHours, setDurationHours] = useState("1");
 
-  const vehicleOptions = pricing
-    ? Object.entries(pricing.vehicleRates).map(([value, rate]) => ({
-        value,
-        label: value === "2-wheeler" ? "2-Wheeler" : "4-Wheeler",
-        rate,
-      }))
-    : [];
+  const vehicleOptions = [
+    { value: "2-wheeler", label: "2-Wheeler", rate: slot?.pricing?.twoWheeler ?? 0 },
+    { value: "4-wheeler", label: "4-Wheeler", rate: slot?.pricing?.fourWheeler ?? 0 },
+  ];
   const selectedVehicle =
     vehicleOptions.find((option) => option.value === vehicleType) ||
     vehicleOptions[0] || { value: vehicleType, label: vehicleType, rate: 0 };
@@ -53,9 +49,6 @@ export const PaymentPage = () => {
   useEffect(() => {
     const loadState = async () => {
       try {
-        const pricingResponse = await bookingApi.get("/pricing");
-        setPricing(pricingResponse.data);
-
         if (bookingId) {
           const response = await bookingApi.get(`/bookings/${bookingId}`);
           setBooking(response.data);
@@ -153,10 +146,6 @@ export const PaymentPage = () => {
 
   if (!bookingId && !slotId) {
     return <div className="glass-panel p-6 text-sm text-slate">Select a slot to begin the booking flow.</div>;
-  }
-
-  if (!pricing) {
-    return <div className="glass-panel p-6 text-sm text-slate">Pricing is currently unavailable.</div>;
   }
 
   return (

@@ -1,8 +1,27 @@
 const Booking = require("../models/Booking");
 const { internalHeaders, notificationClient, parkingClient } = require("../config/http");
-const { calculateTotalAmount, getPricingConfig, getRatePerHour } = require("../utils/pricing");
 
 const buildBookingId = () => `BKG-${Date.now()}${Math.floor(Math.random() * 1000)}`;
+const getSlotRatePerHour = ({ slot, vehicleType }) => {
+  if (!vehicleType) {
+    return null;
+  }
+
+  const slotPricing = slot.pricing || slot.vehiclePricing;
+  if (!slotPricing) {
+    return null;
+  }
+
+  if (vehicleType === "2-wheeler") {
+    return slotPricing.twoWheeler ?? null;
+  }
+
+  if (vehicleType === "4-wheeler") {
+    return slotPricing.fourWheeler ?? null;
+  }
+
+  return null;
+};
 
 const parseBookingWindow = ({ startTime, endTime, duration }) => {
   if (!startTime && !endTime && (duration === undefined || duration === null || duration === "")) {
@@ -128,7 +147,8 @@ const createBooking = async (req, res) => {
     }
 
     const shouldUseDynamicPricing = Boolean(vehicleType || bookingWindow);
-    if (shouldUseDynamicPricing && !getRatePerHour(vehicleType)) {
+    const ratePerHour = shouldUseDynamicPricing ? getSlotRatePerHour({ slot, vehicleType }) : null;
+    if (shouldUseDynamicPricing && typeof ratePerHour !== "number") {
       return res.status(400).json({ message: "vehicleType must be either 2-wheeler or 4-wheeler" });
     }
 
@@ -147,11 +167,9 @@ const createBooking = async (req, res) => {
       }
     }
 
-    const pricingDetails = shouldUseDynamicPricing
-      ? calculateTotalAmount({ vehicleType, durationHours: bookingWindow.durationHours })
-      : null;
-    const totalAmount = pricingDetails?.totalAmount ?? slot.price;
-    const ratePerHour = pricingDetails?.ratePerHour ?? null;
+    const totalAmount = shouldUseDynamicPricing
+      ? Number((ratePerHour * bookingWindow.durationHours).toFixed(2))
+      : slot.price;
 
     const booking = await Booking.create({
       bookingId: buildBookingId(),
@@ -218,8 +236,6 @@ const getBookingById = async (req, res) => {
   }
   return res.json(booking);
 };
-
-const getPricing = async (_req, res) => res.json(getPricingConfig());
 
 const cancelBooking = async (req, res) => {
   try {
@@ -394,6 +410,5 @@ module.exports = {
   getBookingById,
   getBookingInternal,
   getBookings,
-  getPricing,
 };
 
