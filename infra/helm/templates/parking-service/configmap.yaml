@@ -1,0 +1,3 @@
+{{- if .Values.parkingService.enabled }}
+{{ include "smart-parking.renderConfigMap" (dict "root" . "configMap" .Values.parkingService.configMap) }}
+{{- end }}

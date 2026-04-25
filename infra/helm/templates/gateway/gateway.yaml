@@ -1,0 +1,3 @@
+{{- if .Values.gatewayApi.gateway.enabled }}
+{{ include "smart-parking.renderGateway" (dict "root" . "gateway" .Values.gatewayApi.gateway) }}
+{{- end }}

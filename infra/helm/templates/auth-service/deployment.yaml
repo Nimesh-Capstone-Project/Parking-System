@@ -1,0 +1,3 @@
+{{- if .Values.authService.enabled }}
+{{ include "smart-parking.renderDeployment" (dict "root" . "deployment" .Values.authService.deployment) }}
+{{- end }}

@@ -1,0 +1,3 @@
+{{- if .Values.mongo.enabled }}
+{{ include "smart-parking.renderStatefulSet" (dict "root" . "statefulSet" .Values.mongo.statefulSet) }}
+{{- end }}
