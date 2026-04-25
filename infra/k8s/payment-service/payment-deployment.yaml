@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: payment-container
-          image: nimeshsv814/payment-service:v1.0.0
+          image: nimeshsv814/payment-service:v1.0.1
           ports:
             - containerPort: 4004
           envFrom:
