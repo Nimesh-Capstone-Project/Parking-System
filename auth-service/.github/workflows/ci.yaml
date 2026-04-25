@@ -1,0 +1,18 @@
+name: Auth Service CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-ci.yaml@main
+    with:
+      release_tag: ${{ github.sha }}
+      image_name: auth-service
+      dockerfile_path: .
+    secrets: inherit

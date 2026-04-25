@@ -1,0 +1,153 @@
+name: Reusable Microservice CI
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      image_name:
+        required: true
+        type: string
+      dockerfile_path:
+        required: false
+        default: "."
+        type: string
+    secrets:
+      SONAR_TOKEN:
+        required: true
+      SONAR_HOST_URL:
+        required: true
+      SNYK_TOKEN:
+        required: true
+      DOCKER_USERNAME:
+        required: true
+      DOCKER_PASSWORD:
+        required: true
+      TOKEN:
+        required: true
+      EMAIL_USERNAME:
+        required: true
+      EMAIL_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  security-scan:
+    name: Security & Quality Scans
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v4.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+            -Dsonar.projectName=${{ github.event.repository.name }}
+            -Dsonar.sources=.
+
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Snyk Open Source Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+
+  build-and-scan:
+    name: Build & Container Scan
+    needs: security-scan
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.prep.outputs.tag }}
+      service_name: ${{ steps.prep.outputs.service_name }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.TOKEN }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Prepare Metadata
+        id: prep
+        shell: bash
+        run: |
+          echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          echo "service_name=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.dockerfile_path }}
+          push: false
+          load: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+            docker.io/${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+
+      - name: Trivy Vulnerability Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Push Image to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+
+      - name: Push Image to DockerHub
+        run: |
+          docker push docker.io/${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+
+  deploy:
+    name: Deploy Notification
+    needs: build-and-scan
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    steps:
+      - name: Send SMTP Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Deployment to ${{ github.ref_name }} Successful"
+          body: "${{ needs.build-and-scan.outputs.service_name }} version ${{ needs.build-and-scan.outputs.image_tag }} has been deployed to ${{ github.ref_name }} environment."
+          to: ${{ secrets.EMAIL_USERNAME }}
+          from: GitHub Actions CI
