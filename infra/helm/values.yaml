@@ -1,4 +1,25 @@
 namespace: sps-ns
+environment: ""
+
+rollout:
+  enabled: false
+
+rolloutStrategy:
+  default:
+    steps:
+      - setWeight: 20
+      - pause: {}
+      - setWeight: 50
+      - pause: {}
+  dev:
+    steps:
+      - setWeight: 50
+  prod:
+    steps:
+      - setWeight: 20
+      - pause: {}
+      - setWeight: 50
+      - pause: {}
 
 authService:
   enabled: true

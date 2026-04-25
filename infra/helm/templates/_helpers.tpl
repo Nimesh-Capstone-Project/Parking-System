@@ -2,11 +2,25 @@
 {{- default .Release.Namespace .Values.namespace -}}
 {{- end -}}
 
+{{- define "smart-parking.environment" -}}
+{{- $namespace := include "smart-parking.namespace" . -}}
+{{- default $namespace .Values.environment -}}
+{{- end -}}
+
 {{- define "smart-parking.image" -}}
 {{- if .tag -}}
 {{ printf "%s:%s" .repository .tag }}
 {{- else -}}
 {{ .repository }}
+{{- end -}}
+{{- end -}}
+
+{{- define "smart-parking.rolloutSteps" -}}
+{{- $strategies := default dict .Values.rolloutStrategy -}}
+{{- $environment := include "smart-parking.environment" . -}}
+{{- $strategy := (get $strategies $environment) | default (get $strategies "default") | default dict -}}
+{{- if $strategy.steps -}}
+{{ toYaml $strategy.steps }}
 {{- end -}}
 {{- end -}}
 
@@ -25,8 +39,17 @@ data:
 {{- define "smart-parking.renderDeployment" -}}
 {{- $root := .root -}}
 {{- $deployment := .deployment -}}
+{{- $deploymentStrategy := default dict $deployment.strategy -}}
+{{- $rollingUpdate := default dict $deploymentStrategy.rollingUpdate -}}
+{{- $rolloutEnabled := and $root.Values.rollout $root.Values.rollout.enabled -}}
+{{- $rolloutSteps := include "smart-parking.rolloutSteps" $root -}}
+{{- if $rolloutEnabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+{{- else }}
 apiVersion: apps/v1
 kind: Deployment
+{{- end }}
 metadata:
   name: {{ $deployment.name }}
   namespace: {{ include "smart-parking.namespace" $root }}
@@ -35,8 +58,17 @@ spec:
   selector:
     matchLabels:
 {{ toYaml $deployment.selectorLabels | nindent 6 }}
+{{- if $rolloutEnabled }}
+  strategy:
+    canary:
+      maxSurge: {{ default 1 $rollingUpdate.maxSurge }}
+      maxUnavailable: {{ default 1 $rollingUpdate.maxUnavailable }}
+      steps:
+{{ $rolloutSteps | nindent 8 }}
+{{- else if $deployment.strategy }}
   strategy:
 {{ toYaml $deployment.strategy | nindent 4 }}
+{{- end }}
   template:
     metadata:
       labels:
