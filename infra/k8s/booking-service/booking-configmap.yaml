@@ -8,8 +8,8 @@ data:
   MONGO_URI: "mongodb://mongo-svc:27017/bookingdb"
   JWT_SECRET: "smartparking_super_secret"
   CORS_ORIGIN: "*"
-  PARKING_SERVICE_URL: "http://parking-service:4002"
-  NOTIFICATION_SERVICE_URL: "http://notification-service:4006"
+  PARKING_SERVICE_URL: "http://parking-service"
+  NOTIFICATION_SERVICE_URL: "http://notification-service"
   INTERNAL_API_KEY: "smartparking_internal_key"
   BOOKING_HOLD_MINUTES: "10"
 

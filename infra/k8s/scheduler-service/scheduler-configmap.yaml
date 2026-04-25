@@ -5,7 +5,7 @@ metadata:
   namespace: sps-ns
 data:
   PORT: "4005"
-  BOOKING_SERVICE_URL: "http://booking-service:4003"
+  BOOKING_SERVICE_URL: "http://booking-service"
   INTERNAL_API_KEY: "smartparking_internal_key"
   CRON_SCHEDULE: "* * * * *"
 
