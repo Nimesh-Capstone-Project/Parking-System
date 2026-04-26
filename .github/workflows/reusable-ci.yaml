@@ -255,14 +255,12 @@ jobs:
         # if the project does not pass the configured Quality Gate.
 
       - name: Snyk Open Source Scan
-        uses: snyk/actions/node@v1.4.0
+        uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: test
-          args: --severity-threshold=${{ inputs.snyk_severity_threshold }} --all-projects
-        # --severity-threshold=high  → fails only on HIGH or CRITICAL vulns (not low/medium noise)
-        # --all-projects             → scans all package.json files (handles nested packages)
+          args: --severity-threshold=${{ inputs.snyk_severity_threshold }} --all-projectsles nested packages)
 
   # ─────────────────────────────────────────────
   # JOB 2 — Build Docker Image & Container Scan
