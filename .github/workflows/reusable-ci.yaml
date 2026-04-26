@@ -161,7 +161,7 @@ jobs:
 
       - name: Push Image to GHCR
         if: github.event_name != 'pull_request'
-        run: docker push ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+        run: docker push ghcr.io/nimesh-capstone-project/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
 
       - name: Push Image to DockerHub
         if: github.event_name != 'pull_request'
