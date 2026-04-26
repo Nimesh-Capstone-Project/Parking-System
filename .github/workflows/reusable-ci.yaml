@@ -70,7 +70,7 @@ jobs:
 
       - name: Run Tests with Coverage
         continue-on-error: true
-        run: npm run test:ci
+        run: npm run test:ci  
 
       - name: SonarQube Scan
         continue-on-error: true
