@@ -143,7 +143,7 @@ jobs:
           push: false
           load: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+            ghcr.io/nimesh-capstone-project/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
             docker.io/${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
