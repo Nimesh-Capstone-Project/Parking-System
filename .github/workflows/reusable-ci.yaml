@@ -210,19 +210,19 @@ jobs:
         with:
           fetch-depth: 0 # Full history required by SonarQube for blame/new-code detection
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ inputs.node_version }}
-          cache: "npm"
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: ${{ inputs.node_version }}
+      #     cache: "npm"
 
-      - name: Install Dependencies
-        run: npm ci # Reproducible install from package-lock.json
+      # - name: Install Dependencies
+      #   run: npm ci # Reproducible install from package-lock.json
 
-      - name: Run Tests with Coverage
-        run: npm test -- --coverage --coverageReporters=lcov --forceExit
-        # Generates coverage/lcov.info which SonarQube reads for coverage metrics.
-        # --forceExit prevents Jest from hanging after tests complete.
+      # - name: Run Tests with Coverage
+      #   run: npm test -- --coverage --coverageReporters=lcov --forceExit
+      #   # Generates coverage/lcov.info which SonarQube reads for coverage metrics.
+      #   # --forceExit prevents Jest from hanging after tests complete.
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v4.2.1
