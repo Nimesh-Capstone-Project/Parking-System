@@ -175,6 +175,9 @@ on:
         required: false
         default: "high"
         type: string
+      sonar_key:
+        required: true
+        type: string
     secrets:
       SONAR_TOKEN:
         required: true
@@ -224,20 +227,13 @@ jobs:
       #   # Generates coverage/lcov.info which SonarQube reads for coverage metrics.
       #   # --forceExit prevents Jest from hanging after tests complete.
 
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v4.2.1
+      - name: Sonar
+        uses: SonarSource/sonarqube-scan-action@v3
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
         with:
-          args: >
-            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
-            -Dsonar.projectName=${{ github.event.repository.name }}
-            -Dsonar.sources=src
-            -Dsonar.tests=src
-            -Dsonar.test.inclusions=**/*.test.js,**/*.spec.js,**/*.test.ts,**/*.spec.ts
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.exclusions=node_modules/**,coverage/**,dist/**,build/**
+          args: -Dsonar.projectKey=${{ inputs.sonar_key }}
         # NOTE: If you add a sonar-project.properties file to your microservice repo,
         # all these -D args are read from there automatically and this block simplifies to:
         #   uses: SonarSource/sonarqube-scan-action@v4.2.1
