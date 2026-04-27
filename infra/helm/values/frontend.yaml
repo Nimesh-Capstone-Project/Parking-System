@@ -46,7 +46,7 @@ frontend:
     containers:
       - name: frontend-container
         image:
-          repository: nimeshsv814/frontend
+          repository: ghcr.io/nimesh-capstone-project/frontend
           tag: v1.1.3
         ports:
           - containerPort: 80

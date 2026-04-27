@@ -48,7 +48,7 @@ bookingService:
     containers:
       - name: booking-container
         image:
-          repository: nimeshsv814/booking-service
+          repository: ghcr.io/nimesh-capstone-project/booking-service
           tag: v1.0.0
         ports:
           - containerPort: 4003

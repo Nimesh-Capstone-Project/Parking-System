@@ -44,7 +44,7 @@ schedulerService:
     containers:
       - name: scheduler-container
         image:
-          repository: nimeshsv814/scheduler-service
+          repository: ghcr.io/nimesh-capstone-project/scheduler-service
           tag: v1.0.0
         ports:
           - containerPort: 4005

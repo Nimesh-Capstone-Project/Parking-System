@@ -45,7 +45,7 @@ parkingService:
     containers:
       - name: parking-container
         image:
-          repository: nimeshsv814/parking-service
+          repository: ghcr.io/nimesh-capstone-project/parking-service
           tag: v1.0.0
         ports:
           - containerPort: 4002

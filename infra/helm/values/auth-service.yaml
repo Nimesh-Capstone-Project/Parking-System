@@ -49,7 +49,7 @@ authService:
     containers:
       - name: auth-container
         image:
-          repository: nimeshsv814/auth-service
+          repository: ghcr.io/nimesh-capstone-project/auth-service
           tag: v1.0.0
         ports:
           - containerPort: 4001

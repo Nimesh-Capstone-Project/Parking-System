@@ -49,7 +49,7 @@ paymentService:
     containers:
       - name: payment-container
         image:
-          repository: nimeshsv814/payment-service
+          repository: ghcr.io/nimesh-capstone-project/payment-service
           tag: v1.0.1
         ports:
           - containerPort: 4004
