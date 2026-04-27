@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Nimesh-Capstone-Project/Smart-Parking-System.git
+    repoURL: https://github.com/Nimesh-Capstone-Project/Parking-System.git
     targetRevision: master
     path: infra/argocd/apps
   destination:
