@@ -5,9 +5,9 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "1"
-    ci.smartparking.io/last-built-sha: ""
-    ci.smartparking.io/last-built-at: ""
-    ci.smartparking.io/last-built-by: ""
+    ci.smartparking.io/last-built-sha: "bb8defd5b38f5e26596311ba8a293f5beb67bfdc"
+    ci.smartparking.io/last-built-at: "2026-04-27T11:43:15Z"
+    ci.smartparking.io/last-built-by: "nimeshsv814"
 spec:
   project: default
   source:
@@ -19,9 +19,9 @@ spec:
         - values/frontend.yaml
       parameters:
         - name: frontend.deployment.containers[0].image.repository
-          value: nimeshsv814/frontend
+          value: ghcr.io/nimesh-capstone-project/frontend
         - name: frontend.deployment.containers[0].image.tag
-          value: v1.1.3
+          value: bb8defd5b38f5e26596311ba8a293f5beb67bfdc
       values: |
         namespace: dev
         authService:
@@ -52,4 +52,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-
