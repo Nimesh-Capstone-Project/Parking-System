@@ -5,9 +5,9 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
-    ci.smartparking.io/last-built-sha: ""
-    ci.smartparking.io/last-built-at: ""
-    ci.smartparking.io/last-built-by: ""
+    ci.smartparking.io/last-built-sha: "cc0a27be246192db2e58d26af7cab75885de7584"
+    ci.smartparking.io/last-built-at: "2026-04-27T09:40:18Z"
+    ci.smartparking.io/last-built-by: "nimeshsv814"
 spec:
   project: default
   source:
@@ -19,9 +19,9 @@ spec:
         - values/notification-service.yaml
       parameters:
         - name: notificationService.deployment.containers[0].image.repository
-          value: nimeshsv814/notification-service
+          value: ghcr.io/nimesh-capstone-project/notification-service
         - name: notificationService.deployment.containers[0].image.tag
-          value: v1.0.0
+          value: cc0a27be246192db2e58d26af7cab75885de7584
       values: |
         namespace: dev
         authService:
@@ -52,4 +52,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-
