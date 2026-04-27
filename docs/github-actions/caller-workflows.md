@@ -159,6 +159,296 @@ jobs:
       EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
 ```
 
+## Exact `auth-service` `ci.yaml`
+
+```yaml
+name: Auth Service CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag in the format vX.Y.Z or auth-service-vX.Y.Z
+        required: true
+        type: string
+
+jobs:
+  ci:
+    if: github.event_name != 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-ci.yaml@master
+    with:
+      trigger_event: ${{ github.event_name }}
+      source_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      service_name: auth-service
+      image_name: auth-service
+      helm_values_key: authService
+      dev_manifest_path: infra/argocd/dev/auth-service.yaml
+      sonar_key: auth-service
+      docker_context: .
+      dockerfile_path: ./Dockerfile
+      working_directory: .
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_URL: ${{ secrets.SONAR_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-release.yaml@master
+    with:
+      release_tag: ${{ inputs.release_tag }}
+      service_name: auth-service
+      image_name: auth-service
+      helm_values_key: authService
+      dev_manifest_path: infra/argocd/dev/auth-service.yaml
+      prod_manifest_path: infra/argocd/prod/auth-service.yaml
+    secrets:
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+```
+
+## Exact `booking-service` `ci.yaml`
+
+```yaml
+name: Booking Service CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag in the format vX.Y.Z or booking-service-vX.Y.Z
+        required: true
+        type: string
+
+jobs:
+  ci:
+    if: github.event_name != 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-ci.yaml@master
+    with:
+      trigger_event: ${{ github.event_name }}
+      source_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      service_name: booking-service
+      image_name: booking-service
+      helm_values_key: bookingService
+      dev_manifest_path: infra/argocd/dev/booking-service.yaml
+      sonar_key: booking-service
+      docker_context: .
+      dockerfile_path: ./Dockerfile
+      working_directory: .
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_URL: ${{ secrets.SONAR_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-release.yaml@master
+    with:
+      release_tag: ${{ inputs.release_tag }}
+      service_name: booking-service
+      image_name: booking-service
+      helm_values_key: bookingService
+      dev_manifest_path: infra/argocd/dev/booking-service.yaml
+      prod_manifest_path: infra/argocd/prod/booking-service.yaml
+    secrets:
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+```
+
+## Exact `parking-service` `ci.yaml`
+
+```yaml
+name: Parking Service CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag in the format vX.Y.Z or parking-service-vX.Y.Z
+        required: true
+        type: string
+
+jobs:
+  ci:
+    if: github.event_name != 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-ci.yaml@master
+    with:
+      trigger_event: ${{ github.event_name }}
+      source_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      service_name: parking-service
+      image_name: parking-service
+      helm_values_key: parkingService
+      dev_manifest_path: infra/argocd/dev/parking-service.yaml
+      sonar_key: parking-service
+      docker_context: .
+      dockerfile_path: ./Dockerfile
+      working_directory: .
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_URL: ${{ secrets.SONAR_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-release.yaml@master
+    with:
+      release_tag: ${{ inputs.release_tag }}
+      service_name: parking-service
+      image_name: parking-service
+      helm_values_key: parkingService
+      dev_manifest_path: infra/argocd/dev/parking-service.yaml
+      prod_manifest_path: infra/argocd/prod/parking-service.yaml
+    secrets:
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+```
+
+## Exact `payment-service` `ci.yaml`
+
+```yaml
+name: Payment Service CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag in the format vX.Y.Z or payment-service-vX.Y.Z
+        required: true
+        type: string
+
+jobs:
+  ci:
+    if: github.event_name != 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-ci.yaml@master
+    with:
+      trigger_event: ${{ github.event_name }}
+      source_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      service_name: payment-service
+      image_name: payment-service
+      helm_values_key: paymentService
+      dev_manifest_path: infra/argocd/dev/payment-service.yaml
+      sonar_key: payment-service
+      docker_context: .
+      dockerfile_path: ./Dockerfile
+      working_directory: .
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_URL: ${{ secrets.SONAR_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-release.yaml@master
+    with:
+      release_tag: ${{ inputs.release_tag }}
+      service_name: payment-service
+      image_name: payment-service
+      helm_values_key: paymentService
+      dev_manifest_path: infra/argocd/dev/payment-service.yaml
+      prod_manifest_path: infra/argocd/prod/payment-service.yaml
+    secrets:
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+```
+
+## Exact `scheduler-service` `ci.yaml`
+
+```yaml
+name: Scheduler Service CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag in the format vX.Y.Z or scheduler-service-vX.Y.Z
+        required: true
+        type: string
+
+jobs:
+  ci:
+    if: github.event_name != 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-ci.yaml@master
+    with:
+      trigger_event: ${{ github.event_name }}
+      source_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      service_name: scheduler-service
+      image_name: scheduler-service
+      helm_values_key: schedulerService
+      dev_manifest_path: infra/argocd/dev/scheduler-service.yaml
+      sonar_key: scheduler-service
+      docker_context: .
+      dockerfile_path: ./Dockerfile
+      working_directory: .
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_URL: ${{ secrets.SONAR_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-release.yaml@master
+    with:
+      release_tag: ${{ inputs.release_tag }}
+      service_name: scheduler-service
+      image_name: scheduler-service
+      helm_values_key: schedulerService
+      dev_manifest_path: infra/argocd/dev/scheduler-service.yaml
+      prod_manifest_path: infra/argocd/prod/scheduler-service.yaml
+    secrets:
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+```
+
 ## Frontend `ci.yaml`
 
 ```yaml
