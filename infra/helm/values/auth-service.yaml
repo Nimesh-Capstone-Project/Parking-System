@@ -36,7 +36,7 @@ authService:
       SEED_USER_PASSWORD: "User@123"
   deployment:
     name: auth-deploy
-    replicas: 2
+    replicas: 1
     selectorLabels:
       app: sps-auth
     podLabels:
@@ -44,7 +44,7 @@ authService:
     strategy:
       type: RollingUpdate
       rollingUpdate:
-        maxUnavailable: 1
+        maxUnavailable: 0
         maxSurge: 1
     containers:
       - name: auth-container

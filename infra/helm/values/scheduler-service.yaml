@@ -31,7 +31,7 @@ schedulerService:
       CRON_SCHEDULE: "* * * * *"
   deployment:
     name: scheduler-deploy
-    replicas: 2
+    replicas: 1
     selectorLabels:
       app: sps-scheduler
     podLabels:
@@ -39,7 +39,7 @@ schedulerService:
     strategy:
       type: RollingUpdate
       rollingUpdate:
-        maxUnavailable: 1
+        maxUnavailable: 0
         maxSurge: 1
     containers:
       - name: scheduler-container

@@ -33,7 +33,7 @@ frontend:
       VITE_RAZORPAY_KEY_ID: "rzp_test_ShFFMxa9JkqmZu"
   deployment:
     name: frontend-deploy
-    replicas: 2
+    replicas: 1
     selectorLabels:
       app: sps-frontend
     podLabels:
@@ -41,7 +41,7 @@ frontend:
     strategy:
       type: RollingUpdate
       rollingUpdate:
-        maxUnavailable: 1
+        maxUnavailable: 0
         maxSurge: 1
     containers:
       - name: frontend-container

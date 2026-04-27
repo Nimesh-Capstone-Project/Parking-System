@@ -36,7 +36,7 @@ paymentService:
       RAZORPAY_KEY_SECRET: "1I4sLVIvCMWSTUlM5lCZm71j"
   deployment:
     name: payment-deploy
-    replicas: 2
+    replicas: 1
     selectorLabels:
       app: sps-payment
     podLabels:
@@ -44,7 +44,7 @@ paymentService:
     strategy:
       type: RollingUpdate
       rollingUpdate:
-        maxUnavailable: 1
+        maxUnavailable: 0
         maxSurge: 1
     containers:
       - name: payment-container

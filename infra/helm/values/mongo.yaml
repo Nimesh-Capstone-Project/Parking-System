@@ -9,7 +9,7 @@ mongo:
       share: /var/nfs/general/Smart-Parking
   statefulSet:
     name: mongo-deploy
-    replicas: 2
+    replicas: 1
     minReadySeconds: 10
     selectorLabels:
       app: sps-mongo
