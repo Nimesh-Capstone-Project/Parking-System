@@ -35,6 +35,16 @@ Use the frontend caller for:
 
 ## Backend `ci.yaml`
 
+This sample uses `auth-service` as the placeholder.
+Replace every service-specific value before pasting it into another repo:
+
+- `service_name`
+- `image_name`
+- `helm_values_key`
+- `dev_manifest_path`
+- `prod_manifest_path`
+- `sonar_key`
+
 ```yaml
 name: Service CI/CD
 
@@ -85,6 +95,64 @@ jobs:
       helm_values_key: authService
       dev_manifest_path: infra/argocd/dev/auth-service.yaml
       prod_manifest_path: infra/argocd/prod/auth-service.yaml
+    secrets:
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+```
+
+## Exact `notification-service` `ci.yaml`
+
+```yaml
+name: Notification Service CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag in the format notification-service-vX.Y.Z
+        required: true
+        type: string
+
+jobs:
+  ci:
+    if: github.event_name != 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-ci.yaml@master
+    with:
+      trigger_event: ${{ github.event_name }}
+      source_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      service_name: notification-service
+      image_name: notification-service
+      helm_values_key: notificationService
+      dev_manifest_path: infra/argocd/dev/notification-service.yaml
+      sonar_key: notification-service
+      docker_context: .
+      dockerfile_path: ./Dockerfile
+      working_directory: .
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_URL: ${{ secrets.SONAR_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      TOKEN: ${{ secrets.TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    uses: Nimesh-Capstone-Project/Parking-System/.github/workflows/reusable-release.yaml@master
+    with:
+      release_tag: ${{ inputs.release_tag }}
+      service_name: notification-service
+      image_name: notification-service
+      helm_values_key: notificationService
+      dev_manifest_path: infra/argocd/dev/notification-service.yaml
+      prod_manifest_path: infra/argocd/prod/notification-service.yaml
     secrets:
       TOKEN: ${{ secrets.TOKEN }}
       EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
