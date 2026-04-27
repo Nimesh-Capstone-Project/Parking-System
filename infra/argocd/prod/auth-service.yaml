@@ -5,10 +5,10 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
-    ci.smartparking.io/last-release-sha: ""
-    ci.smartparking.io/last-release-tag: ""
-    ci.smartparking.io/last-released-at: ""
-    ci.smartparking.io/last-released-by: ""
+    ci.smartparking.io/last-release-sha: "7c8019f513aefd284842ca204e46c763f7e9ffbe"
+    ci.smartparking.io/last-release-tag: "v1.0.7"
+    ci.smartparking.io/last-released-at: "2026-04-27T12:20:48Z"
+    ci.smartparking.io/last-released-by: "nimeshsv814"
 spec:
   project: default
   source:
@@ -20,9 +20,9 @@ spec:
         - values/auth-service.yaml
       parameters:
         - name: authService.deployment.containers[0].image.repository
-          value: nimeshsv814/auth-service
+          value: ghcr.io/nimesh-capstone-project/auth-service
         - name: authService.deployment.containers[0].image.tag
-          value: v1.0.0
+          value: v1.0.7
       values: |
         namespace: prod
         bookingService:
@@ -53,4 +53,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-
