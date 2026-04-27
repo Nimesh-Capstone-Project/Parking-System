@@ -240,7 +240,7 @@ jobs:
       - name: Update Dev Manifest
         shell: bash
         env:
-          DEV_MANIFEST: ${{ inputs.dev_manifest_path }}
+          DEV_MANIFEST: infra-repo/${{ inputs.dev_manifest_path }}
           IMAGE_REPOSITORY: ${{ needs.build-and-scan.outputs.image_repository }}
           IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag }}
           BUILT_AT: ${{ needs.build-and-scan.outputs.built_at }}
