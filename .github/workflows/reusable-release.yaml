@@ -85,7 +85,7 @@ jobs:
           IMAGE_NAME: ${{ inputs.image_name }}
           GHCR_NAMESPACE: ${{ inputs.ghcr_namespace }}
           HELM_VALUES_KEY: ${{ inputs.helm_values_key }}
-          DEV_MANIFEST: infra-repo/${{ inputs.dev_manifest_path }}
+          DEV_MANIFEST: ${{ inputs.dev_manifest_path }}
         run: |
           expected_prefix="${SERVICE_NAME}-"
           if [[ "${RELEASE_TAG}" != "${expected_prefix}"* ]]; then
