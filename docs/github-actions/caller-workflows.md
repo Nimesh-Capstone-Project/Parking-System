@@ -58,7 +58,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag in the format service-name-vX.Y.Z
+        description: Release tag in the format vX.Y.Z or service-name-vX.Y.Z
         required: true
         type: string
 
@@ -116,7 +116,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag in the format notification-service-vX.Y.Z
+        description: Release tag in the format vX.Y.Z or notification-service-vX.Y.Z
         required: true
         type: string
 
@@ -174,7 +174,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag in the format frontend-vX.Y.Z
+        description: Release tag in the format vX.Y.Z or frontend-vX.Y.Z
         required: true
         type: string
 
@@ -231,6 +231,7 @@ jobs:
 
 ## Manual release examples
 
+- `v1.1.0`
 - `auth-service-v1.1.0`
 - `booking-service-v1.1.0`
 - `payment-service-v1.1.0`
