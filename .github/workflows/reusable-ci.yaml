@@ -87,8 +87,71 @@ permissions:
   packages: write
 
 jobs:
+  resolve-build-strategy:
+    name: Resolve Build Strategy
+    runs-on: ubuntu-latest
+    outputs:
+      reuse_existing_image: ${{ steps.strategy.outputs.reuse_existing_image }}
+      image_repository: ${{ steps.strategy.outputs.image_repository }}
+      image_tag: ${{ steps.strategy.outputs.image_tag }}
+      repository_parameter: ${{ steps.strategy.outputs.repository_parameter }}
+      tag_parameter: ${{ steps.strategy.outputs.tag_parameter }}
+      built_at: ${{ steps.strategy.outputs.built_at }}
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.TOKEN }}
+
+      - name: Resolve Reusable Image
+        id: strategy
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GHCR_NAMESPACE: ${{ inputs.ghcr_namespace }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          HELM_VALUES_KEY: ${{ inputs.helm_values_key }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          TRIGGER_EVENT: ${{ inputs.trigger_event }}
+        run: |
+          ghcr_namespace="$(echo "${GHCR_NAMESPACE}" | tr '[:upper:]' '[:lower:]')"
+          image_repository="ghcr.io/${ghcr_namespace}/${IMAGE_NAME}"
+          image_tag="${SOURCE_SHA}"
+          built_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          reuse_existing_image="false"
+
+          if [[ "${TRIGGER_EVENT}" == "push" ]]; then
+            pr_api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/commits/${SOURCE_SHA}/pulls"
+            pr_head_sha=""
+
+            if pr_response="$(curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${pr_api}")"; then
+              pr_head_sha="$(echo "${pr_response}" | jq -r '[.[] | select(.merged_at != null)][0].head.sha // empty')"
+            fi
+
+            if [[ -n "${pr_head_sha}" ]] && docker manifest inspect "${image_repository}:${pr_head_sha}" >/dev/null 2>&1; then
+              image_tag="${pr_head_sha}"
+              reuse_existing_image="true"
+            fi
+          fi
+
+          echo "reuse_existing_image=${reuse_existing_image}" >> "$GITHUB_OUTPUT"
+          echo "image_repository=${image_repository}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
+          echo "repository_parameter=${HELM_VALUES_KEY}.deployment.containers[0].image.repository" >> "$GITHUB_OUTPUT"
+          echo "tag_parameter=${HELM_VALUES_KEY}.deployment.containers[0].image.tag" >> "$GITHUB_OUTPUT"
+          echo "built_at=${built_at}" >> "$GITHUB_OUTPUT"
+
   security-scan:
     name: Security and Quality Scans
+    needs: resolve-build-strategy
+    if: ${{ needs.resolve-build-strategy.outputs.reuse_existing_image != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Service Repository
@@ -149,7 +212,10 @@ jobs:
 
   build-and-scan:
     name: Build and Container Scan
-    needs: security-scan
+    needs:
+      - resolve-build-strategy
+      - security-scan
+    if: ${{ needs.resolve-build-strategy.outputs.reuse_existing_image != 'true' }}
     runs-on: ubuntu-latest
     outputs:
       image_repository: ${{ steps.meta.outputs.image_repository }}
@@ -178,7 +244,7 @@ jobs:
           GHCR_NAMESPACE: ${{ inputs.ghcr_namespace }}
           IMAGE_NAME: ${{ inputs.image_name }}
           HELM_VALUES_KEY: ${{ inputs.helm_values_key }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_SHA: ${{ needs.resolve-build-strategy.outputs.image_tag }}
         run: |
           ghcr_namespace="$(echo "${GHCR_NAMESPACE}" | tr '[:upper:]' '[:lower:]')"
           image_repository="ghcr.io/${ghcr_namespace}/${IMAGE_NAME}"
@@ -213,14 +279,16 @@ jobs:
           severity: CRITICAL
 
       - name: Push Image to GHCR
-        if: ${{ inputs.trigger_event == 'push' }}
+        if: ${{ inputs.trigger_event == 'pull_request' || inputs.trigger_event == 'push' }}
         shell: bash
         run: docker push "${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.image_tag }}"
 
   update-dev-manifest:
     name: Update Dev ArgoCD Manifest
-    needs: build-and-scan
-    if: ${{ inputs.trigger_event == 'push' }}
+    needs:
+      - resolve-build-strategy
+      - build-and-scan
+    if: ${{ always() && inputs.trigger_event == 'push' && needs.resolve-build-strategy.result == 'success' && (needs.resolve-build-strategy.outputs.reuse_existing_image == 'true' || needs.build-and-scan.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Infra Repository
@@ -241,12 +309,12 @@ jobs:
         shell: bash
         env:
           DEV_MANIFEST: infra-repo/${{ inputs.dev_manifest_path }}
-          IMAGE_REPOSITORY: ${{ needs.build-and-scan.outputs.image_repository }}
-          IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag }}
-          BUILT_AT: ${{ needs.build-and-scan.outputs.built_at }}
+          IMAGE_REPOSITORY: ${{ needs.build-and-scan.outputs.image_repository || needs.resolve-build-strategy.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag || needs.resolve-build-strategy.outputs.image_tag }}
+          BUILT_AT: ${{ needs.build-and-scan.outputs.built_at || needs.resolve-build-strategy.outputs.built_at }}
           BUILT_BY: ${{ github.actor }}
-          REPOSITORY_PARAMETER: ${{ needs.build-and-scan.outputs.repository_parameter }}
-          TAG_PARAMETER: ${{ needs.build-and-scan.outputs.tag_parameter }}
+          REPOSITORY_PARAMETER: ${{ needs.build-and-scan.outputs.repository_parameter || needs.resolve-build-strategy.outputs.repository_parameter }}
+          TAG_PARAMETER: ${{ needs.build-and-scan.outputs.tag_parameter || needs.resolve-build-strategy.outputs.tag_parameter }}
         run: |
           repo_count="$(yq '.spec.source.helm.parameters | map(select(.name == strenv(REPOSITORY_PARAMETER))) | length' "${DEV_MANIFEST}")"
           tag_count="$(yq '.spec.source.helm.parameters | map(select(.name == strenv(TAG_PARAMETER))) | length' "${DEV_MANIFEST}")"
@@ -269,7 +337,7 @@ jobs:
         working-directory: infra-repo
         env:
           SERVICE_NAME: ${{ inputs.service_name }}
-          IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag || needs.resolve-build-strategy.outputs.image_tag }}
         run: |
           if git diff --quiet; then
             echo "No manifest changes detected."
@@ -285,9 +353,10 @@ jobs:
   notify:
     name: Send Deployment Notification
     needs:
+      - resolve-build-strategy
       - build-and-scan
       - update-dev-manifest
-    if: ${{ inputs.trigger_event == 'push' }}
+    if: ${{ always() && inputs.trigger_event == 'push' && needs.resolve-build-strategy.result == 'success' && needs.update-dev-manifest.result == 'success' && (needs.resolve-build-strategy.outputs.reuse_existing_image == 'true' || needs.build-and-scan.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - name: Check Mail Configuration
@@ -312,13 +381,13 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "[dev] ${{ inputs.service_name }} updated to ${{ needs.build-and-scan.outputs.image_tag }}"
+          subject: "[dev] ${{ inputs.service_name }} updated to ${{ needs.build-and-scan.outputs.image_tag || needs.resolve-build-strategy.outputs.image_tag }}"
           body: |
             Service:      ${{ inputs.service_name }}
             Environment:  development
-            Image:        ${{ needs.build-and-scan.outputs.image_repository }}:${{ needs.build-and-scan.outputs.image_tag }}
+            Image:        ${{ needs.build-and-scan.outputs.image_repository || needs.resolve-build-strategy.outputs.image_repository }}:${{ needs.build-and-scan.outputs.image_tag || needs.resolve-build-strategy.outputs.image_tag }}
             Triggered by: ${{ github.actor }}
-            Commit:       ${{ inputs.source_sha }}
+            Commit:       ${{ needs.build-and-scan.outputs.image_tag || needs.resolve-build-strategy.outputs.image_tag }}
             Run:          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.EMAIL_USERNAME }}
           from: "GitHub Actions <${{ secrets.EMAIL_USERNAME }}>"
