@@ -1,21 +1,53 @@
-name: Reusable Microservice CI
+name: Reusable Frontend CI/CD
 
 on:
   workflow_call:
     inputs:
-      release_tag:
+      trigger_event:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      service_name:
         required: true
         type: string
       image_name:
         required: true
         type: string
+      helm_values_key:
+        required: true
+        type: string
+      dev_manifest_path:
+        required: true
+        type: string
+      docker_context:
+        required: false
+        default: "."
+        type: string
       dockerfile_path:
+        required: false
+        default: "./Dockerfile"
+        type: string
+      working_directory:
         required: false
         default: "."
         type: string
       node_version:
         required: false
         default: "20"
+        type: string
+      install_command:
+        required: false
+        default: "npm install"
+        type: string
+      test_command:
+        required: false
+        default: "npm test --if-present"
+        type: string
+      application_build_command:
+        required: false
+        default: "npm run build"
         type: string
       snyk_severity_threshold:
         required: false
@@ -24,6 +56,18 @@ on:
       sonar_key:
         required: true
         type: string
+      ghcr_namespace:
+        required: false
+        default: "nimesh-capstone-project"
+        type: string
+      infra_repository:
+        required: false
+        default: "Nimesh-Capstone-Project/Parking-System"
+        type: string
+      infra_ref:
+        required: false
+        default: "master"
+        type: string
     secrets:
       SONAR_TOKEN:
         required: true
@@ -31,30 +75,23 @@ on:
         required: true
       SNYK_TOKEN:
         required: true
-      DOCKER_USERNAME:
-        required: true
-      DOCKER_PASSWORD:
-        required: true
       TOKEN:
         required: true
       EMAIL_USERNAME:
-        required: true
+        required: false
       EMAIL_PASSWORD:
-        required: true
+        required: false
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  # ─────────────────────────────────────────────
-  # JOB 1 — Security & Quality Scans
-  # ─────────────────────────────────────────────
   security-scan:
-    name: Security & Quality Scans
+    name: Security and Quality Scans
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Service Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -65,18 +102,23 @@ jobs:
           node-version: ${{ inputs.node_version }}
 
       - name: Install Dependencies
-        run: npm install
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.install_command }}
 
-      - name: Run Tests with Coverage
+      - name: Run Tests
+        if: ${{ inputs.test_command != '' }}
         continue-on-error: true
-        run: CI=true npm test -- --coverage --coverageReporters=lcov --watchAll=false
-        # CI=true  → prevents React test watcher from hanging the pipeline
-        # --watchAll=false → exits after a single test run
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.test_command }}
 
-      - name: Build React App
+      - name: Run Application Build
+        if: ${{ inputs.application_build_command != '' }}
         continue-on-error: true
-        run: npm run build
-        # Catches any compilation or import errors before the Docker build stage
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.application_build_command }}
 
       - name: SonarQube Scan
         continue-on-error: true
@@ -85,6 +127,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
         with:
+          projectBaseDir: ${{ inputs.working_directory }}
           args: -Dsonar.projectKey=${{ inputs.sonar_key }}
 
       - name: SonarQube Quality Gate
@@ -104,18 +147,18 @@ jobs:
           command: test
           args: --severity-threshold=${{ inputs.snyk_severity_threshold }} --all-projects
 
-  # ─────────────────────────────────────────────
-  # JOB 2 — Build Docker Image & Container Scan
-  # ─────────────────────────────────────────────
   build-and-scan:
-    name: Build & Container Scan
+    name: Build and Container Scan
     needs: security-scan
     runs-on: ubuntu-latest
     outputs:
-      image_tag: ${{ steps.prep.outputs.tag }}
-      service_name: ${{ steps.prep.outputs.service_name }}
+      image_repository: ${{ steps.meta.outputs.image_repository }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      repository_parameter: ${{ steps.meta.outputs.repository_parameter }}
+      tag_parameter: ${{ steps.meta.outputs.tag_parameter }}
+      built_at: ${{ steps.meta.outputs.built_at }}
     steps:
-      - name: Checkout Code
+      - name: Checkout Service Repository
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
@@ -128,36 +171,41 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.TOKEN }}
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Prepare Metadata
-        id: prep
+        id: meta
         shell: bash
+        env:
+          GHCR_NAMESPACE: ${{ inputs.ghcr_namespace }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          HELM_VALUES_KEY: ${{ inputs.helm_values_key }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
-          echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
-          echo "service_name=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+          ghcr_namespace="$(echo "${GHCR_NAMESPACE}" | tr '[:upper:]' '[:lower:]')"
+          image_repository="ghcr.io/${ghcr_namespace}/${IMAGE_NAME}"
+          built_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          echo "image_repository=${image_repository}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "repository_parameter=${HELM_VALUES_KEY}.deployment.containers[0].image.repository" >> "$GITHUB_OUTPUT"
+          echo "tag_parameter=${HELM_VALUES_KEY}.deployment.containers[0].image.tag" >> "$GITHUB_OUTPUT"
+          echo "built_at=${built_at}" >> "$GITHUB_OUTPUT"
 
       - name: Build Image
         uses: docker/build-push-action@v5
         with:
-          context: ${{ inputs.dockerfile_path }}
+          context: ${{ inputs.docker_context }}
+          file: ${{ inputs.dockerfile_path }}
           push: false
           load: true
-          tags: |
-            ghcr.io/nimesh-capstone-project/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
-            docker.io/${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+          tags: ${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Trivy Vulnerability Scan
         continue-on-error: true
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: ghcr.io/nimesh-capstone-project/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+          image-ref: ${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.image_tag }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
@@ -165,23 +213,82 @@ jobs:
           severity: CRITICAL
 
       - name: Push Image to GHCR
-        if: github.event_name != 'pull_request'
-        run: docker push ghcr.io/nimesh-capstone-project/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
+        if: ${{ inputs.trigger_event == 'push' }}
+        shell: bash
+        run: docker push "${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.image_tag }}"
 
-      - name: Push Image to DockerHub
-        if: github.event_name != 'pull_request'
-        run: docker push docker.io/${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ steps.prep.outputs.tag }}
-
-  # ─────────────────────────────────────────────
-  # JOB 3 — Deploy Notification
-  # ─────────────────────────────────────────────
-  deploy:
-    name: Deploy Notification
+  update-dev-manifest:
+    name: Update Dev ArgoCD Manifest
     needs: build-and-scan
+    if: ${{ inputs.trigger_event == 'push' }}
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    environment:
-      name: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout Infra Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.infra_repository }}
+          ref: ${{ inputs.infra_ref }}
+          token: ${{ secrets.TOKEN }}
+          path: infra-repo
+
+      - name: Install yq
+        shell: bash
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Update Dev Manifest
+        shell: bash
+        env:
+          DEV_MANIFEST: infra-repo/${{ inputs.dev_manifest_path }}
+          IMAGE_REPOSITORY: ${{ needs.build-and-scan.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag }}
+          BUILT_AT: ${{ needs.build-and-scan.outputs.built_at }}
+          BUILT_BY: ${{ github.actor }}
+          REPOSITORY_PARAMETER: ${{ needs.build-and-scan.outputs.repository_parameter }}
+          TAG_PARAMETER: ${{ needs.build-and-scan.outputs.tag_parameter }}
+        run: |
+          repo_count="$(yq '.spec.source.helm.parameters | map(select(.name == strenv(REPOSITORY_PARAMETER))) | length' "${DEV_MANIFEST}")"
+          tag_count="$(yq '.spec.source.helm.parameters | map(select(.name == strenv(TAG_PARAMETER))) | length' "${DEV_MANIFEST}")"
+
+          if [[ "${repo_count}" != "1" || "${tag_count}" != "1" ]]; then
+            echo "Expected image repository and tag Helm parameters in ${DEV_MANIFEST}"
+            exit 1
+          fi
+
+          yq -i '
+            (.spec.source.helm.parameters[] | select(.name == strenv(REPOSITORY_PARAMETER)).value) = strenv(IMAGE_REPOSITORY) |
+            (.spec.source.helm.parameters[] | select(.name == strenv(TAG_PARAMETER)).value) = strenv(IMAGE_TAG) |
+            .metadata.annotations."ci.smartparking.io/last-built-sha" = strenv(IMAGE_TAG) |
+            .metadata.annotations."ci.smartparking.io/last-built-at" = strenv(BUILT_AT) |
+            .metadata.annotations."ci.smartparking.io/last-built-by" = strenv(BUILT_BY)
+          ' "${DEV_MANIFEST}"
+
+      - name: Commit Dev Manifest Changes
+        shell: bash
+        working-directory: infra-repo
+        env:
+          SERVICE_NAME: ${{ inputs.service_name }}
+          IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag }}
+        run: |
+          if git diff --quiet; then
+            echo "No manifest changes detected."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.dev_manifest_path }}"
+          git commit -m "ci: update ${SERVICE_NAME} dev image to ${IMAGE_TAG}"
+          git push origin "HEAD:${{ inputs.infra_ref }}"
+
+  notify:
+    name: Send Deployment Notification
+    needs:
+      - build-and-scan
+      - update-dev-manifest
+    if: ${{ inputs.trigger_event == 'push' && secrets.EMAIL_USERNAME != '' && secrets.EMAIL_PASSWORD != '' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Send SMTP Notification
         uses: dawidd6/action-send-mail@v3
@@ -191,14 +298,13 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "[${{ github.ref_name }}] ${{ needs.build-and-scan.outputs.service_name }} deployed successfully"
+          subject: "[dev] ${{ inputs.service_name }} updated to ${{ needs.build-and-scan.outputs.image_tag }}"
           body: |
-            Service:      ${{ needs.build-and-scan.outputs.service_name }}
-            Version:      ${{ needs.build-and-scan.outputs.image_tag }}
-            Branch:       ${{ github.ref_name }}
-            Environment:  ${{ github.ref_name == 'main' && 'production' || 'development' }}
+            Service:      ${{ inputs.service_name }}
+            Environment:  development
+            Image:        ${{ needs.build-and-scan.outputs.image_repository }}:${{ needs.build-and-scan.outputs.image_tag }}
             Triggered by: ${{ github.actor }}
-            Commit:       ${{ github.sha }}
+            Commit:       ${{ inputs.source_sha }}
             Run:          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.EMAIL_USERNAME }}
           from: "GitHub Actions <${{ secrets.EMAIL_USERNAME }}>"

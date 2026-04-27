@@ -5,15 +5,24 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    ci.smartparking.io/last-release-sha: ""
+    ci.smartparking.io/last-release-tag: ""
+    ci.smartparking.io/last-released-at: ""
+    ci.smartparking.io/last-released-by: ""
 spec:
   project: default
   source:
-    repoURL: https://github.com/Nimesh-Capstone-Project/Smart-Parking-System.git
+    repoURL: https://github.com/Nimesh-Capstone-Project/Parking-System.git
     targetRevision: master
     path: infra/helm
     helm:
       valueFiles:
         - values/frontend.yaml
+      parameters:
+        - name: frontend.deployment.containers[0].image.repository
+          value: nimeshsv814/frontend
+        - name: frontend.deployment.containers[0].image.tag
+          value: v1.1.3
       values: |
         namespace: prod
         authService:

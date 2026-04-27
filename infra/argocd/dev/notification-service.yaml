@@ -5,6 +5,9 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
+    ci.smartparking.io/last-built-sha: ""
+    ci.smartparking.io/last-built-at: ""
+    ci.smartparking.io/last-built-by: ""
 spec:
   project: default
   source:
@@ -14,6 +17,11 @@ spec:
     helm:
       valueFiles:
         - values/notification-service.yaml
+      parameters:
+        - name: notificationService.deployment.containers[0].image.repository
+          value: nimeshsv814/notification-service
+        - name: notificationService.deployment.containers[0].image.tag
+          value: v1.0.0
       values: |
         namespace: dev
         authService:

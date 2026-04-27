@@ -1,0 +1,209 @@
+name: Reusable Manual Release
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      service_name:
+        required: true
+        type: string
+      image_name:
+        required: true
+        type: string
+      helm_values_key:
+        required: true
+        type: string
+      dev_manifest_path:
+        required: true
+        type: string
+      prod_manifest_path:
+        required: true
+        type: string
+      ghcr_namespace:
+        required: false
+        default: "nimesh-capstone-project"
+        type: string
+      infra_repository:
+        required: false
+        default: "Nimesh-Capstone-Project/Parking-System"
+        type: string
+      infra_ref:
+        required: false
+        default: "master"
+        type: string
+    secrets:
+      TOKEN:
+        required: true
+      EMAIL_USERNAME:
+        required: false
+      EMAIL_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  promote:
+    name: Promote Last Dev Image to Prod
+    runs-on: ubuntu-latest
+    outputs:
+      image_repository: ${{ steps.meta.outputs.image_repository }}
+      release_version: ${{ steps.meta.outputs.release_version }}
+      source_sha: ${{ steps.meta.outputs.source_sha }}
+      released_at: ${{ steps.meta.outputs.released_at }}
+    steps:
+      - name: Checkout Infra Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.infra_repository }}
+          ref: ${{ inputs.infra_ref }}
+          token: ${{ secrets.TOKEN }}
+          path: infra-repo
+
+      - name: Install yq
+        shell: bash
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.TOKEN }}
+
+      - name: Prepare Release Metadata
+        id: meta
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          GHCR_NAMESPACE: ${{ inputs.ghcr_namespace }}
+          HELM_VALUES_KEY: ${{ inputs.helm_values_key }}
+          DEV_MANIFEST: infra-repo/${{ inputs.dev_manifest_path }}
+        run: |
+          expected_prefix="${SERVICE_NAME}-"
+          if [[ "${RELEASE_TAG}" != "${expected_prefix}"* ]]; then
+            echo "Release tag must start with ${expected_prefix}"
+            exit 1
+          fi
+
+          release_version="${RELEASE_TAG#${expected_prefix}}"
+          if [[ ! "${release_version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z._-]+)?$ ]]; then
+            echo "Release tag must be in the format ${SERVICE_NAME}-vX.Y.Z"
+            exit 1
+          fi
+
+          ghcr_namespace="$(echo "${GHCR_NAMESPACE}" | tr '[:upper:]' '[:lower:]')"
+          image_repository="ghcr.io/${ghcr_namespace}/${IMAGE_NAME}"
+          export REPOSITORY_PARAMETER="${HELM_VALUES_KEY}.deployment.containers[0].image.repository"
+          export TAG_PARAMETER="${HELM_VALUES_KEY}.deployment.containers[0].image.tag"
+          source_sha="$(yq -r '.metadata.annotations."ci.smartparking.io/last-built-sha"' "${DEV_MANIFEST}")"
+
+          if [[ -z "${source_sha}" || "${source_sha}" == "null" ]]; then
+            echo "No last built SHA found in ${DEV_MANIFEST}"
+            exit 1
+          fi
+
+          current_repository="$(yq -r '.spec.source.helm.parameters[] | select(.name == strenv(REPOSITORY_PARAMETER)).value' "${DEV_MANIFEST}")"
+          if [[ -n "${current_repository}" && "${current_repository}" != "null" ]]; then
+            image_repository="${current_repository}"
+          fi
+
+          released_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          echo "image_repository=${image_repository}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${release_version}" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${source_sha}" >> "$GITHUB_OUTPUT"
+          echo "released_at=${released_at}" >> "$GITHUB_OUTPUT"
+          echo "repository_parameter=${REPOSITORY_PARAMETER}" >> "$GITHUB_OUTPUT"
+          echo "tag_parameter=${TAG_PARAMETER}" >> "$GITHUB_OUTPUT"
+
+      - name: Pull SHA Image
+        shell: bash
+        run: docker pull "${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.source_sha }}"
+
+      - name: Retag Release Image
+        shell: bash
+        run: docker tag "${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.source_sha }}" "${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.release_version }}"
+
+      - name: Push Release Image
+        shell: bash
+        run: docker push "${{ steps.meta.outputs.image_repository }}:${{ steps.meta.outputs.release_version }}"
+
+      - name: Update Prod Manifest
+        shell: bash
+        env:
+          PROD_MANIFEST: infra-repo/${{ inputs.prod_manifest_path }}
+          IMAGE_REPOSITORY: ${{ steps.meta.outputs.image_repository }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
+          SOURCE_SHA: ${{ steps.meta.outputs.source_sha }}
+          RELEASED_AT: ${{ steps.meta.outputs.released_at }}
+          RELEASED_BY: ${{ github.actor }}
+          REPOSITORY_PARAMETER: ${{ steps.meta.outputs.repository_parameter }}
+          TAG_PARAMETER: ${{ steps.meta.outputs.tag_parameter }}
+        run: |
+          repo_count="$(yq '.spec.source.helm.parameters | map(select(.name == strenv(REPOSITORY_PARAMETER))) | length' "${PROD_MANIFEST}")"
+          tag_count="$(yq '.spec.source.helm.parameters | map(select(.name == strenv(TAG_PARAMETER))) | length' "${PROD_MANIFEST}")"
+
+          if [[ "${repo_count}" != "1" || "${tag_count}" != "1" ]]; then
+            echo "Expected image repository and tag Helm parameters in ${PROD_MANIFEST}"
+            exit 1
+          fi
+
+          yq -i '
+            (.spec.source.helm.parameters[] | select(.name == strenv(REPOSITORY_PARAMETER)).value) = strenv(IMAGE_REPOSITORY) |
+            (.spec.source.helm.parameters[] | select(.name == strenv(TAG_PARAMETER)).value) = strenv(RELEASE_VERSION) |
+            .metadata.annotations."ci.smartparking.io/last-release-sha" = strenv(SOURCE_SHA) |
+            .metadata.annotations."ci.smartparking.io/last-release-tag" = strenv(RELEASE_VERSION) |
+            .metadata.annotations."ci.smartparking.io/last-released-at" = strenv(RELEASED_AT) |
+            .metadata.annotations."ci.smartparking.io/last-released-by" = strenv(RELEASED_BY)
+          ' "${PROD_MANIFEST}"
+
+      - name: Commit Prod Manifest Changes
+        shell: bash
+        working-directory: infra-repo
+        env:
+          SERVICE_NAME: ${{ inputs.service_name }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
+        run: |
+          if git diff --quiet; then
+            echo "No manifest changes detected."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.prod_manifest_path }}"
+          git commit -m "release: promote ${SERVICE_NAME} to ${RELEASE_VERSION}"
+          git push origin "HEAD:${{ inputs.infra_ref }}"
+
+  notify:
+    name: Send Release Notification
+    needs: promote
+    if: ${{ secrets.EMAIL_USERNAME != '' && secrets.EMAIL_PASSWORD != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send SMTP Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "[prod] ${{ inputs.service_name }} released as ${{ needs.promote.outputs.release_version }}"
+          body: |
+            Service:      ${{ inputs.service_name }}
+            Environment:  production
+            Image:        ${{ needs.promote.outputs.image_repository }}:${{ needs.promote.outputs.release_version }}
+            Source SHA:   ${{ needs.promote.outputs.source_sha }}
+            Triggered by: ${{ github.actor }}
+            Run:          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.EMAIL_USERNAME }}
+          from: "GitHub Actions <${{ secrets.EMAIL_USERNAME }}>"
