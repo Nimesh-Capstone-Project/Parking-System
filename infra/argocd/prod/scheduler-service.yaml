@@ -5,10 +5,10 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
-    ci.smartparking.io/last-release-sha: ""
-    ci.smartparking.io/last-release-tag: ""
-    ci.smartparking.io/last-released-at: ""
-    ci.smartparking.io/last-released-by: ""
+    ci.smartparking.io/last-release-sha: "05ebf32b879331983629febe5d1cfb80b32c0736"
+    ci.smartparking.io/last-release-tag: "v1.0.7"
+    ci.smartparking.io/last-released-at: "2026-04-27T13:00:41Z"
+    ci.smartparking.io/last-released-by: "nimeshsv814"
 spec:
   project: default
   source:
@@ -20,9 +20,9 @@ spec:
         - values/scheduler-service.yaml
       parameters:
         - name: schedulerService.deployment.containers[0].image.repository
-          value: nimeshsv814/scheduler-service
+          value: ghcr.io/nimesh-capstone-project/scheduler-service
         - name: schedulerService.deployment.containers[0].image.tag
-          value: v1.0.0
+          value: v1.0.7
       values: |
         namespace: prod
         authService:
