@@ -287,10 +287,24 @@ jobs:
     needs:
       - build-and-scan
       - update-dev-manifest
-    if: ${{ inputs.trigger_event == 'push' && secrets.EMAIL_USERNAME != '' && secrets.EMAIL_PASSWORD != '' }}
+    if: ${{ inputs.trigger_event == 'push' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Check Mail Configuration
+        id: mail_config
+        shell: bash
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          if [[ -n "${EMAIL_USERNAME}" && -n "${EMAIL_PASSWORD}" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Send SMTP Notification
+        if: ${{ steps.mail_config.outputs.enabled == 'true' }}
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
