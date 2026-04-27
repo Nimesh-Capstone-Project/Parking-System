@@ -45,8 +45,8 @@ notificationService:
     containers:
       - name: notification-container
         image:
-          repository: nimeshsv814/notification-service
-          tag: v1.0.0
+          repository: ghcr.io/nimesh-capstone-project/notification-service
+          tag: v1.0.7
         ports:
           - containerPort: 4006
         envFromConfigMaps:
