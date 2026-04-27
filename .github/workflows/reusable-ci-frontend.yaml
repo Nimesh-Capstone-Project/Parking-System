@@ -285,9 +285,6 @@ jobs:
 
   update-dev-manifest:
     name: Update Dev ArgoCD Manifest
-    needs:
-      - resolve-build-strategy
-      - build-and-scan
     if: ${{ always() && inputs.trigger_event == 'push' && needs.resolve-build-strategy.result == 'success' && (needs.resolve-build-strategy.outputs.reuse_existing_image == 'true' || needs.build-and-scan.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
