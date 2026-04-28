@@ -26,6 +26,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: booking-configmap
+            - secretRef:
+                name: booking-secret
           resources:
             requests:
               cpu: "100m"

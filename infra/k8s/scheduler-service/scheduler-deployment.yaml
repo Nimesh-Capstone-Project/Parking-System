@@ -26,6 +26,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: scheduler-configmap
+            - secretRef:
+                name: scheduler-secret
           resources:
             requests:
               cpu: "100m"

@@ -26,6 +26,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: parking-configmap
+            - secretRef:
+                name: parking-secret
           resources:
             requests:
               cpu: "100m"

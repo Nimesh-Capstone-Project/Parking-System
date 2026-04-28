@@ -26,6 +26,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: payment-configmap
+            - secretRef:
+                name: payment-secret
           resources:
             requests:
               cpu: "100m"

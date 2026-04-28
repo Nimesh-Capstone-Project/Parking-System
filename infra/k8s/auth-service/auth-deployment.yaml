@@ -26,6 +26,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: auth-configmap
+            - secretRef:
+                name: auth-secret
           resources:
             requests:
               cpu: "100m"
