@@ -36,6 +36,19 @@ data:
 {{ toYaml $configMap.data | nindent 2 }}
 {{- end -}}
 
+{{- define "smart-parking.renderSecret" -}}
+{{- $root := .root -}}
+{{- $secret := .secret -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secret.name }}
+  namespace: {{ include "smart-parking.namespace" $root }}
+type: {{ default "Opaque" $secret.type }}
+data:
+{{ toYaml $secret.data | nindent 2 }}
+{{- end -}}
+
 {{- define "smart-parking.renderDeployment" -}}
 {{- $root := .root -}}
 {{- $deployment := .deployment -}}
@@ -84,11 +97,15 @@ spec:
             - containerPort: {{ $port.containerPort }}
 {{- end }}
 {{- end }}
-{{- if $container.envFromConfigMaps }}
+{{- if or $container.envFromConfigMaps $container.envFromSecrets }}
           envFrom:
 {{- range $configMapName := $container.envFromConfigMaps }}
             - configMapRef:
                 name: {{ $configMapName }}
+{{- end }}
+{{- range $secretName := $container.envFromSecrets }}
+            - secretRef:
+                name: {{ $secretName }}
 {{- end }}
 {{- end }}
 {{- if $container.resources }}

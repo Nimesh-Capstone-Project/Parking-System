@@ -26,14 +26,18 @@ authService:
     name: auth-configmap
     data:
       PORT: "4001"
-      MONGO_URI: "mongodb://mongo-svc:27017/authdb"
-      JWT_SECRET: "smartparking_super_secret"
       JWT_EXPIRES_IN: "7d"
       CORS_ORIGIN: "*"
       SEED_ADMIN_EMAIL: "admin@parking.com"
-      SEED_ADMIN_PASSWORD: "Admin@123"
       SEED_USER_EMAIL: "user@parking.com"
-      SEED_USER_PASSWORD: "User@123"
+  secret:
+    name: auth-secret
+    type: Opaque
+    data:
+      MONGO_URI: "bW9uZ29kYjovL21vbmdvLXN2YzoyNzAxNy9hdXRoZGI="
+      JWT_SECRET: "c21hcnRwYXJraW5nX3N1cGVyX3NlY3JldA=="
+      SEED_ADMIN_PASSWORD: "QWRtaW5AMTIz"
+      SEED_USER_PASSWORD: "VXNlckAxMjM="
   deployment:
     name: auth-deploy
     replicas: 1
@@ -55,6 +59,8 @@ authService:
           - containerPort: 4001
         envFromConfigMaps:
           - auth-configmap
+        envFromSecrets:
+          - auth-secret
         resources:
           requests:
             cpu: "100m"

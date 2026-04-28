@@ -27,14 +27,18 @@ authService:
     name: auth-configmap
     data:
       PORT: "4001"
-      MONGO_URI: "mongodb://mongo-svc:27017/authdb"
-      JWT_SECRET: "smartparking_super_secret"
       JWT_EXPIRES_IN: "7d"
       CORS_ORIGIN: "*"
       SEED_ADMIN_EMAIL: "admin@parking.com"
-      SEED_ADMIN_PASSWORD: "Admin@123"
       SEED_USER_EMAIL: "user@parking.com"
-      SEED_USER_PASSWORD: "User@123"
+  secret:
+    name: auth-secret
+    type: Opaque
+    data:
+      MONGO_URI: "bW9uZ29kYjovL21vbmdvLXN2YzoyNzAxNy9hdXRoZGI="
+      JWT_SECRET: "c21hcnRwYXJraW5nX3N1cGVyX3NlY3JldA=="
+      SEED_ADMIN_PASSWORD: "QWRtaW5AMTIz"
+      SEED_USER_PASSWORD: "VXNlckAxMjM="
   deployment:
     name: auth-deploy
     replicas: 2
@@ -56,6 +60,8 @@ authService:
           - containerPort: 4001
         envFromConfigMaps:
           - auth-configmap
+        envFromSecrets:
+          - auth-secret
         resources:
           requests:
             cpu: "100m"
@@ -78,13 +84,17 @@ bookingService:
     name: booking-configmap
     data:
       PORT: "4003"
-      MONGO_URI: "mongodb://mongo-svc:27017/bookingdb"
-      JWT_SECRET: "smartparking_super_secret"
       CORS_ORIGIN: "*"
       PARKING_SERVICE_URL: "http://parking-service"
       NOTIFICATION_SERVICE_URL: "http://notification-service"
-      INTERNAL_API_KEY: "smartparking_internal_key"
       BOOKING_HOLD_MINUTES: "10"
+  secret:
+    name: booking-secret
+    type: Opaque
+    data:
+      MONGO_URI: "bW9uZ29kYjovL21vbmdvLXN2YzoyNzAxNy9ib29raW5nZGI="
+      JWT_SECRET: "c21hcnRwYXJraW5nX3N1cGVyX3NlY3JldA=="
+      INTERNAL_API_KEY: "c21hcnRwYXJraW5nX2ludGVybmFsX2tleQ=="
   deployment:
     name: booking-deploy
     replicas: 2
@@ -106,6 +116,8 @@ bookingService:
           - containerPort: 4003
         envFromConfigMaps:
           - booking-configmap
+        envFromSecrets:
+          - booking-secret
         resources:
           requests:
             cpu: "100m"
@@ -132,7 +144,11 @@ frontend:
       VITE_BOOKING_SERVICE_URL: "/booking"
       VITE_PAYMENT_SERVICE_URL: "/payment"
       VITE_NOTIFICATION_SERVICE_URL: "/notification"
-      VITE_RAZORPAY_KEY_ID: "rzp_test_ShFFMxa9JkqmZu"
+  secret:
+    name: frontend-secret
+    type: Opaque
+    data:
+      VITE_RAZORPAY_KEY_ID: "cnpwX3Rlc3RfU2hGRk14YTlKa3FtWnU="
   deployment:
     name: frontend-deploy
     replicas: 2
@@ -154,6 +170,8 @@ frontend:
           - containerPort: 80
         envFromConfigMaps:
           - frontend-configmap
+        envFromSecrets:
+          - frontend-secret
         resources:
           requests:
             cpu: "100m"
@@ -323,10 +341,14 @@ notificationService:
     name: notification-configmap
     data:
       PORT: "4006"
-      MONGO_URI: "mongodb://mongo-svc:27017/notificationdb"
-      JWT_SECRET: "smartparking_super_secret"
       CORS_ORIGIN: "*"
-      INTERNAL_API_KEY: "smartparking_internal_key"
+  secret:
+    name: notification-secret
+    type: Opaque
+    data:
+      MONGO_URI: "bW9uZ29kYjovL21vbmdvLXN2YzoyNzAxNy9ub3RpZmljYXRpb25kYg=="
+      JWT_SECRET: "c21hcnRwYXJraW5nX3N1cGVyX3NlY3JldA=="
+      INTERNAL_API_KEY: "c21hcnRwYXJraW5nX2ludGVybmFsX2tleQ=="
   deployment:
     name: notification-deploy
     replicas: 2
@@ -348,6 +370,8 @@ notificationService:
           - containerPort: 4006
         envFromConfigMaps:
           - notification-configmap
+        envFromSecrets:
+          - notification-secret
         resources:
           requests:
             cpu: "100m"
@@ -370,10 +394,14 @@ parkingService:
     name: parking-configmap
     data:
       PORT: "4002"
-      MONGO_URI: "mongodb://mongo-svc:27017/parkingdb"
-      JWT_SECRET: "smartparking_super_secret"
       CORS_ORIGIN: "*"
-      INTERNAL_API_KEY: "smartparking_internal_key"
+  secret:
+    name: parking-secret
+    type: Opaque
+    data:
+      MONGO_URI: "bW9uZ29kYjovL21vbmdvLXN2YzoyNzAxNy9wYXJraW5nZGI="
+      JWT_SECRET: "c21hcnRwYXJraW5nX3N1cGVyX3NlY3JldA=="
+      INTERNAL_API_KEY: "c21hcnRwYXJraW5nX2ludGVybmFsX2tleQ=="
   deployment:
     name: parking-deploy
     replicas: 2
@@ -395,6 +423,8 @@ parkingService:
           - containerPort: 4002
         envFromConfigMaps:
           - parking-configmap
+        envFromSecrets:
+          - parking-secret
         resources:
           requests:
             cpu: "100m"
@@ -417,14 +447,18 @@ paymentService:
     name: payment-configmap
     data:
       PORT: "4004"
-      MONGO_URI: "mongodb://mongo-svc:27017/paymentdb"
-      JWT_SECRET: "smartparking_super_secret"
       CORS_ORIGIN: "*"
       BOOKING_SERVICE_URL: "http://booking-service"
       NOTIFICATION_SERVICE_URL: "http://notification-service"
-      INTERNAL_API_KEY: "smartparking_internal_key"
-      RAZORPAY_KEY_ID: "rzp_test_ShFFMxa9JkqmZu"
-      RAZORPAY_KEY_SECRET: "1I4sLVIvCMWSTUlM5lCZm71j"
+  secret:
+    name: payment-secret
+    type: Opaque
+    data:
+      MONGO_URI: "bW9uZ29kYjovL21vbmdvLXN2YzoyNzAxNy9wYXltZW50ZGI="
+      JWT_SECRET: "c21hcnRwYXJraW5nX3N1cGVyX3NlY3JldA=="
+      INTERNAL_API_KEY: "c21hcnRwYXJraW5nX2ludGVybmFsX2tleQ=="
+      RAZORPAY_KEY_ID: "cnpwX3Rlc3RfU2hGRk14YTlKa3FtWnU="
+      RAZORPAY_KEY_SECRET: "MUk0c0xWSXZDTVdTVFVsTTVsQ1ptNzFq"
   deployment:
     name: payment-deploy
     replicas: 2
@@ -446,6 +480,8 @@ paymentService:
           - containerPort: 4004
         envFromConfigMaps:
           - payment-configmap
+        envFromSecrets:
+          - payment-secret
         resources:
           requests:
             cpu: "100m"
@@ -469,8 +505,12 @@ schedulerService:
     data:
       PORT: "4005"
       BOOKING_SERVICE_URL: "http://booking-service"
-      INTERNAL_API_KEY: "smartparking_internal_key"
       CRON_SCHEDULE: "* * * * *"
+  secret:
+    name: scheduler-secret
+    type: Opaque
+    data:
+      INTERNAL_API_KEY: "c21hcnRwYXJraW5nX2ludGVybmFsX2tleQ=="
   deployment:
     name: scheduler-deploy
     replicas: 2
@@ -492,6 +532,8 @@ schedulerService:
           - containerPort: 4005
         envFromConfigMaps:
           - scheduler-configmap
+        envFromSecrets:
+          - scheduler-secret
         resources:
           requests:
             cpu: "100m"

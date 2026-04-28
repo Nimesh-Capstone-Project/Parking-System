@@ -27,8 +27,12 @@ schedulerService:
     data:
       PORT: "4005"
       BOOKING_SERVICE_URL: "http://booking-service"
-      INTERNAL_API_KEY: "smartparking_internal_key"
       CRON_SCHEDULE: "* * * * *"
+  secret:
+    name: scheduler-secret
+    type: Opaque
+    data:
+      INTERNAL_API_KEY: "c21hcnRwYXJraW5nX2ludGVybmFsX2tleQ=="
   deployment:
     name: scheduler-deploy
     replicas: 1
@@ -50,6 +54,8 @@ schedulerService:
           - containerPort: 4005
         envFromConfigMaps:
           - scheduler-configmap
+        envFromSecrets:
+          - scheduler-secret
         resources:
           requests:
             cpu: "100m"
