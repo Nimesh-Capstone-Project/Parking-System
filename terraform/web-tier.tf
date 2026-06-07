@@ -15,10 +15,12 @@ resource "aws_instance" "web-server" {
 #!/bin/bash
 
 apt-get update -y
-apt-get install -y docker.io
+apt-get install -y docker.io nginx
 
 systemctl enable docker
 systemctl start docker
+systemctl enable nginx
+systemctl start nginx
 
 mkdir -p /opt/frontend
 
@@ -31,13 +33,74 @@ VITE_NOTIFICATION_SERVICE_URL=/notification
 VITE_RAZORPAY_KEY_ID=rzp_test_ShFFMxa9JkqmZu
 ENVFILE
 
+cat <<NGINXCONF > /etc/nginx/conf.d/frontend.conf
+server {
+    listen 80;
+    server_name _;
+
+    location /auth {
+        proxy_pass http://${aws_lb.internal_alb.dns_name};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /parking {
+        proxy_pass http://${aws_lb.internal_alb.dns_name};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /booking {
+        proxy_pass http://${aws_lb.internal_alb.dns_name};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /payment {
+        proxy_pass http://${aws_lb.internal_alb.dns_name};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /notification {
+        proxy_pass http://${aws_lb.internal_alb.dns_name};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINXCONF
+
 docker pull nimeshsv814/frontend:0c1895a17d815b17ee999d3388ad5e9f667821ee
 
 docker run -d \
   --name web-app \
   --restart unless-stopped \
   --env-file /opt/frontend/.env \
-  -p 80:80 \
+  -p 127.0.0.1:8080:80 \
   nimeshsv814/frontend:0c1895a17d815b17ee999d3388ad5e9f667821ee
 
 EOF

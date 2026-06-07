@@ -3,10 +3,10 @@ resource "aws_instance" "database" {
   instance_type = "t2.micro"
   key_name      = var.key_name
 
-  subnet_id = aws_subnet.app_private_subnets["app-private-subnet-1a"].id
+  subnet_id = aws_subnet.db_private_subnets["data-private-subnet-1a"].id
 
   vpc_security_group_ids = [
-    aws_security_group.app-sg.id
+    aws_security_group.db-sg.id
   ]
 
   associate_public_ip_address = false

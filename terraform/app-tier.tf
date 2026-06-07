@@ -14,10 +14,12 @@ resource "aws_instance" "backend_server" {
 #!/bin/bash
 
 apt-get update -y
-apt-get install -y docker.io
+apt-get install -y docker.io nginx
 
 systemctl enable docker
 systemctl start docker
+systemctl enable nginx
+systemctl start nginx
 
 mkdir -p /opt/microservices
 
@@ -79,6 +81,68 @@ CORS_ORIGIN=*
 INTERNAL_API_KEY=smartparking_internal_key
 EOT
 
+cat <<NGINXCONF > /etc/nginx/conf.d/backend-proxy.conf
+server {
+    listen 80;
+    server_name _;
+
+    location /auth {
+        rewrite ^/auth/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:4001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /parking {
+        rewrite ^/parking/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:4002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /booking {
+        rewrite ^/booking/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:4003;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /payment {
+        rewrite ^/payment/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:4004;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /notification {
+        rewrite ^/notification/(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:4006;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        return 200 'OK';
+        add_header Content-Type text/plain;
+    }
+}
+NGINXCONF
+
 docker pull nimeshsv814/auth-service:v1.3.0
 docker pull nimeshsv814/parking-service:0d618dae7b512b578cbd3f8973d272ee2de36c51
 docker pull nimeshsv814/booking-service:bcb8c00fe92695ea4af42ee2e73c78376838d579
@@ -134,4 +198,96 @@ EOF
   tags = {
     Name = "backend-server"
   }
+}
+
+resource "aws_lb" "external_alb" {
+  name               = "external-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.externalALB-sg.id]
+  subnets            = [for s in aws_subnet.public_subnets : s.id]
+
+  tags = {
+    Name = "external-alb"
+  }
+}
+
+resource "aws_lb_target_group" "web_tg" {
+  name        = "tg-web"
+  port        = 80
+  protocol    = "HTTP"
+  target_type = "instance"
+  vpc_id      = aws_vpc.main.id
+
+  health_check {
+    path                = "/"
+    matcher             = "200-399"
+    interval            = 30
+    healthy_threshold   = 3
+    unhealthy_threshold = 2
+    timeout             = 5
+  }
+}
+
+resource "aws_lb_listener" "external_http_listener" {
+  load_balancer_arn = aws_lb.external_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web_tg.arn
+  }
+}
+
+resource "aws_lb_target_group_attachment" "web" {
+  target_group_arn = aws_lb_target_group.web_tg.arn
+  target_id        = aws_instance.web-server.id
+  port             = 80
+}
+
+resource "aws_lb" "internal_alb" {
+  name               = "smart-parking-internal-alb"
+  internal           = true
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.internalALB-sg.id]
+  subnets            = [for s in aws_subnet.app_private_subnets : s.id]
+
+  tags = {
+    Name = "smart-parking-internal-alb"
+  }
+}
+
+resource "aws_lb_target_group" "app_tg" {
+  name        = "tg-app-services"
+  port        = 80
+  protocol    = "HTTP"
+  target_type = "instance"
+  vpc_id      = aws_vpc.main.id
+
+  health_check {
+    path                = "/health"
+    matcher             = "200-399"
+    interval            = 30
+    healthy_threshold   = 3
+    unhealthy_threshold = 2
+    timeout             = 5
+  }
+}
+
+resource "aws_lb_listener" "internal_http_listener" {
+  load_balancer_arn = aws_lb.internal_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
+  }
+}
+
+resource "aws_lb_target_group_attachment" "app" {
+  target_group_arn = aws_lb_target_group.app_tg.arn
+  target_id        = aws_instance.backend_server.id
+  port             = 80
 }
